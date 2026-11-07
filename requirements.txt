@@ -13,3 +13,5 @@ openpyxl>=3.1
 beautifulsoup4>=4.12
 lxml>=5.0
 networkx>=3.2
+
+# Build marker: ResearchMate 1.1.1 (2026-11-07.3) - request fresh Community Cloud dependency rebuild
