@@ -55,7 +55,7 @@ def _get_json(url: str, params: dict | None = None, timeout: int = 25) -> dict:
 def search_openalex(query: str, year_from: int, year_to: int, limit: int = 30, api_key: str = "") -> list[dict]:
     params = {
         "search": query,
-        "filter": f"from_publication_date:{year_from}-01-01,to_publication_date:{year_to}-12-31",
+        "filter": f"open_access.is_oa:true,type:article|review,from_publication_date:{year_from}-01-01,to_publication_date:{year_to}-12-31",
         "per-page": min(max(int(limit), 5), 50),
         "sort": "relevance_score:desc",
         "select": "id,doi,title,publication_year,publication_date,authorships,primary_location,best_oa_location,locations,open_access,cited_by_count,abstract_inverted_index,ids,type,has_content,content_urls"
@@ -67,7 +67,11 @@ def search_openalex(query: str, year_from: int, year_to: int, limit: int = 30, a
     for item in data.get("results", []):
         if not item.get("title"):
             continue
-        results.append(normalize_work(item))
+        work = normalize_work(item)
+        # Defense in depth: only retain records explicitly marked OA by OpenAlex.
+        if not work.get("is_oa"):
+            continue
+        results.append(work)
     return results
 
 
@@ -83,8 +87,17 @@ def normalize_work(item: dict) -> dict:
     source = ((primary.get("source") or {}).get("display_name")
               or (best.get("source") or {}).get("display_name") or "")
     locations = item.get("locations") or []
-    urls = []
+    # Never attempt a PDF/landing-page URL from a closed-access location.
+    oa_locations = []
     for loc in [best, *locations, primary]:
+        if not loc:
+            continue
+        if loc is not best and loc.get("is_oa") is not True:
+            continue
+        if loc not in oa_locations:
+            oa_locations.append(loc)
+    urls = []
+    for loc in oa_locations:
         u = loc.get("pdf_url")
         if u and u not in urls:
             urls.append(u)
@@ -100,6 +113,7 @@ def normalize_work(item: dict) -> dict:
         "is_oa": bool(oa.get("is_oa")), "oa_status": oa.get("oa_status", "unknown"),
         "oa_url": oa.get("oa_url") or best.get("landing_page_url") or "",
         "license": best.get("license") or "unknown", "pdf_urls": urls,
+        "oa_location_count": len(oa_locations),
         "pmcid": pmcid, "type": item.get("type", "article"),
         "has_content": item.get("has_content") or {}, "content_urls": item.get("content_urls") or {}, "source_work": item
     }
@@ -471,7 +485,30 @@ DOI: {paper.get('doi')}
         if not isinstance(result.get(field), str): result[field] = _as_json_text(result.get(field, ""))
     quotes = result.get("evidence_quotes", [])
     if not isinstance(quotes, list): quotes = []
-    result["evidence_quotes"] = [q for q in quotes if isinstance(q, dict) and q.get("quote")]
+    # Verify every model-provided quotation against the source text before exposing it.
+    source_norm = clean_text(source_text).casefold()
+    page_texts = {str(pg.get("page")): clean_text(pg.get("text", "")).casefold()
+                  for pg in (fulltext.get("pages") or []) if pg.get("page") is not None}
+    verified_quotes, rejected_quotes = [], 0
+    for quote_item in quotes:
+        if not isinstance(quote_item, dict) or not quote_item.get("quote"):
+            rejected_quotes += 1
+            continue
+        quote_text = clean_text(quote_item.get("quote"))
+        quote_norm = quote_text.casefold()
+        if not quote_norm or quote_norm not in source_norm:
+            rejected_quotes += 1
+            continue
+        quote_item["quote"] = quote_text
+        quote_item["quote_verified"] = True
+        if quote_item.get("page") is not None:
+            page_text = page_texts.get(str(quote_item["page"]))
+            quote_item["page_verified"] = bool(page_text and quote_norm in page_text)
+            if not quote_item["page_verified"]:
+                quote_item["page"] = None
+        verified_quotes.append(quote_item)
+    result["evidence_quotes"] = verified_quotes
+    result["unverified_quotes_rejected"] = rejected_quotes
     result["paper_id"] = paper["id"]
     result["analysis_mode"] = "llm_evidence_extraction"
     result["evidence_level"] = fulltext.get("status")
@@ -567,7 +604,7 @@ def run_research(query: str, year_from: int, year_to: int, max_papers: int = 12,
         raise ValueError("موضوع پژوهش خالی است")
     papers = search_openalex(query, year_from, year_to, max_papers, api_key=openalex_api_key)
     if not papers:
-        raise RuntimeError("OpenAlex مقاله‌ای برای این عبارت و بازه زمانی پیدا نکرد")
+        raise RuntimeError("در این بازه، مقاله یا مقاله‌مرورِ دارای برچسب دسترسی‌آزاد (Open Access) در OpenAlex پیدا نشد. عبارت جست‌وجو یا بازه زمانی را تغییر بده.")
     analyses, docs, logs = [], [], []
     total = len(papers)
     for idx, paper in enumerate(papers, 1):
@@ -597,7 +634,8 @@ def run_research(query: str, year_from: int, year_to: int, max_papers: int = 12,
         synthesis = fallback_synthesis(query, papers, analyses)
         logs.append("کلید مدل/رضایت ارسال متن فعال نبود؛ تحلیل در حالت قواعد و استخراج شواهد انجام شد.")
     return {
-        "query": query, "year_from": year_from, "year_to": year_to, "papers": papers,
+        "query": query, "year_from": year_from, "year_to": year_to,
+        "search_scope": "OpenAlex open_access.is_oa:true; type:article|review", "papers": papers,
         "documents": docs, "analyses": analyses, "synthesis": synthesis, "logs": logs,
         "run_id": hashlib.sha256((query + str(time.time())).encode()).hexdigest()[:12],
         "llm_enabled": synthesis.get("analysis_mode") == "llm_cross_paper_synthesis"
