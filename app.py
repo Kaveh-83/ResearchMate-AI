@@ -81,6 +81,7 @@ if run_btn:
                 if p.get("is_oa") is True and p.get("type") in {"article", "review"}
             ]
             requested_limit = min(max(int(max_papers), 1), 50)
+            original_count = len(bundle.get("papers", []))
             selected = aligned[:requested_limit]
             if not selected:
                 raise RuntimeError("پس از اعمال فیلتر نهایی Open Access و نوع مقاله/مقاله‌مرور، رکورد معتبری باقی نماند.")
@@ -89,9 +90,9 @@ if run_btn:
             bundle["analyses"] = [item[2] for item in selected]
             bundle["requested_max_papers"] = requested_limit
             bundle["returned_papers"] = len(selected)
-            if len(aligned) != len(selected):
+            if len(aligned) != original_count or len(aligned) != len(selected):
                 bundle.setdefault("logs", []).append(
-                    f"کنترل نهایی رابط: از {len(aligned)} رکورد OA واجد شرایط، {len(selected)} رکورد مطابق سقف درخواستی {requested_limit} نگه داشته شد."
+                    f"کنترل نهایی رابط: {original_count} رکورد دریافتی بررسی شد؛ {len(aligned)} رکورد OA از نوع مقاله/مقاله‌مرور واجد شرایط بود؛ {len(selected)} رکورد مطابق سقف درخواستی {requested_limit} نگه داشته شد."
                 )
                 if api_key.strip() and consent:
                     try:
