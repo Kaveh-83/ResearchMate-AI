@@ -4,6 +4,7 @@ import json, re, time, hashlib, textwrap
 from typing import Any, Callable
 from urllib.parse import urlparse, quote
 import requests
+from llm_providers import generate as provider_generate
 
 OPENALEX = "https://api.openalex.org/works"
 EUROPE_PMC = "https://www.ebi.ac.uk/europepmc/webservices/rest"
@@ -314,7 +315,7 @@ def _unpaywall_oa_urls(doi: str, email: str) -> list[str]:
         return []
 
 
-def obtain_fulltext(paper: dict, openalex_api_key: str = "", unpaywall_email: str = "") -> dict:
+def obtain_fulltext(paper: dict, openalex_api_key: str = "", unpaywall_email: str = "", provider: str = "gemini") -> dict:
     """Try OA XML/PDF routes automatically. Never attempts paywall bypass."""
     if openalex_api_key and (paper.get("has_content", {}).get("grobid_xml") or paper.get("content_urls", {}).get("grobid_xml")):
         tei = _extract_openalex_tei(paper.get("id", ""), openalex_api_key)
@@ -493,6 +494,13 @@ def gemini_generate(prompt: str, api_key: str, model: str = "gemini-3.8-flash", 
         raise RuntimeError("مدل پاسخی در قالب قابل‌خواندن برنگرداند")
 
 
+
+def generate_text(prompt: str, provider: str, api_key: str, model: str, timeout: int = 90) -> str:
+    """Dispatch to Gemini or an OpenAI-compatible official provider API."""
+    if provider == "gemini":
+        return gemini_generate(prompt, api_key, model, timeout=timeout)
+    return provider_generate(prompt, provider, model=model, api_key=api_key, timeout=timeout)
+
 def _parse_json(text: str) -> dict:
     raw = text.strip()
     raw = re.sub(r"^```(?:json)?\s*|\s*```$", "", raw, flags=re.I)
@@ -535,7 +543,7 @@ def select_analysis_text(fulltext: dict, abstract: str, max_chars: int = 36000) 
     return result[:max_chars+6500]
 
 
-def analyze_one_with_llm(paper: dict, fulltext: dict, api_key: str, model: str) -> dict:
+def analyze_one_with_llm(paper: dict, fulltext: dict, api_key: str, model: str, provider: str = "gemini") -> dict:
     source_text = select_analysis_text(fulltext, paper.get("abstract", ""))
     prompt = f"""نقش تو: پژوهشگر ارشد و داور علمی در حوزه مهندسی مواد/متالورژی و روش پژوهش. فقط بر اساس سند زیر تحلیل کن؛ هیچ ماده، عدد، نتیجه یا روشی را حدس نزن. اگر داده‌ای موجود نیست دقیقاً بنویس «گزارش نشده/قابل استخراج نیست». زبان خروجی فارسی علمی باشد. نقل‌قول‌های شواهد باید عیناً از متن منبع باشند و شماره صفحه فقط وقتی واقعاً موجود است داده شود.
 خروجی فقط JSON با کلیدهای زیر باشد:
@@ -550,7 +558,7 @@ DOI: {paper.get('doi')}
 متن مقاله/چکیده:
 {source_text}
 """
-    result = _parse_json(gemini_generate(prompt, api_key, model))
+    result = _parse_json(generate_text(prompt, provider, api_key, model))
     array_fields = ["materials", "alloy_composition", "methods", "equipment_instrumentation", "process_conditions",
                     "input_variables", "output_variables", "measured_properties", "metrics", "baseline_comparators",
                     "validation_strategy", "uncertainty_statistics", "quantitative_findings", "findings", "risk_of_bias",
@@ -599,7 +607,7 @@ def _as_json_text(value: Any) -> str:
     return str(value)
 
 
-def synthesize_with_llm(query: str, papers: list[dict], analyses: list[dict], api_key: str, model: str) -> dict:
+def synthesize_with_llm(query: str, papers: list[dict], analyses: list[dict], api_key: str, model: str, provider: str = "gemini") -> dict:
     corpus = []
     for p, a in zip(papers, analyses):
         corpus.append({
@@ -625,7 +633,7 @@ abstract و background و thematic_synthesis و conclusion و limitations_of_rev
 داده‌های مقاله‌ها:
 {json.dumps(corpus, ensure_ascii=False)[:52000]}
 """
-    out = _parse_json(gemini_generate(prompt, api_key, model, timeout=150))
+    out = _parse_json(generate_text(prompt, provider, api_key, model, timeout=150))
     allowed = {p["id"] for p in papers}
     valid_claims = []
     raw_claims = out.get("claims", [])
@@ -697,7 +705,7 @@ def run_research(query: str, year_from: int, year_to: int, max_papers: int = 12,
         analysis = rule_based_analysis(paper, doc)
         if api_key and consent_to_send:
             try:
-                analysis = analyze_one_with_llm(paper, doc, api_key, model)
+                analysis = analyze_one_with_llm(paper, doc, api_key, model, provider=provider)
                 logs.append(f"تحلیل مدل زبانی موفق: {paper['title'][:90]}")
                 time.sleep(0.25)
             except Exception as exc:
@@ -708,7 +716,7 @@ def run_research(query: str, year_from: int, year_to: int, max_papers: int = 12,
             progress(f"دریافت و تحلیل مقاله {idx}/{total}: {paper['title'][:85]}", idx, total)
     if api_key and consent_to_send:
         try:
-            synthesis = synthesize_with_llm(query, papers, analyses, api_key, model)
+            synthesis = synthesize_with_llm(query, papers, analyses, api_key, model, provider=provider)
             logs.append("سنتز بین‌مقاله‌ای با مدل زبانی انجام شد.")
         except Exception as exc:
             synthesis = fallback_synthesis(query, papers, analyses)
