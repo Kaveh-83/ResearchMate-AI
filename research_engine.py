@@ -172,7 +172,7 @@ def _find_europe_pmc_pmcid(doi: str) -> str:
     try:
         response = requests.get(
             f"{EUROPE_PMC}/search",
-            params={"query": f'EXT_ID:"{doi.strip()}"', "format": "json", "resultType": "core", "pageSize": 3},
+            params={"query": f'DOI:"{doi.strip()}"', "format": "json", "resultType": "core", "pageSize": 3},
             timeout=20, headers={"User-Agent": USER_AGENT}
         )
         response.raise_for_status()
