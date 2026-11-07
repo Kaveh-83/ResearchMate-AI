@@ -3,8 +3,8 @@ from unittest.mock import patch
 from research_engine import run_research, rule_based_analysis, normalize_work, select_analysis_text, search_openalex, analyze_one_with_llm, _unpaywall_oa_urls
 
 PAPERS = [
-    {"id":"https://openalex.org/W101","title":"Random forest prediction of BOF endpoint temperature","year":2024,"doi":"10.5555/a","authors":["A Author"],"authors_text":"A Author","journal":"Steel Journal","citations":8,"oa_status":"gold","oa_url":"https://oa.example/a.pdf","abstract":"This study used random forest to predict BOF endpoint temperature. Results showed RMSE 8.5 °C using 1200 heats. Limitations include plant-specific data.","is_oa":True},
-    {"id":"https://openalex.org/W102","title":"Energy optimization in electric arc furnace","year":2023,"doi":"10.5555/b","authors":["B Author"],"authors_text":"B Author","journal":"Metallurgy Letters","citations":12,"oa_status":"unknown","oa_url":"","abstract":"A statistical analysis showed energy consumption reduced by 7.2% after process optimization. Further research is needed for different scrap mixes.","is_oa":False},
+    {"id":"https://openalex.org/W101","title":"Random forest prediction of BOF endpoint temperature","year":2024,"type":"article","is_oa":True,"doi":"10.5555/a","authors":["A Author"],"authors_text":"A Author","journal":"Steel Journal","citations":8,"oa_status":"gold","oa_url":"https://oa.example/a.pdf","abstract":"This study used random forest to predict BOF endpoint temperature. Results showed RMSE 8.5 °C using 1200 heats. Limitations include plant-specific data.","is_oa":True},
+    {"id":"https://openalex.org/W102","title":"Energy optimization in electric arc furnace","year":2023,"type":"article","is_oa":True,"doi":"10.5555/b","authors":["B Author"],"authors_text":"B Author","journal":"Metallurgy Letters","citations":12,"oa_status":"unknown","oa_url":"","abstract":"A statistical analysis showed energy consumption reduced by 7.2% after process optimization. Further research is needed for different scrap mixes.","is_oa":False},
 ]
 DOCS = [
     {"status":"full_text","source_url":"https://oa.example/a.pdf","format":"pdf","text":"Introduction. Random forest prediction of BOF endpoint temperature. Materials and Methods. 1200 heats were included. Results. RMSE was 8.5 °C. Discussion. The model was plant-specific.","pages":[{"page":1,"text":"Introduction. Random forest prediction of BOF endpoint temperature. Materials and Methods. 1200 heats were included. Results. RMSE was 8.5 °C."}],"tables":[[["Metric","Value"],["RMSE","8.5 °C"]]],"reason":"test OA full text"},
@@ -42,7 +42,7 @@ def test_text_selection_and_normalization():
 
 def test_openalex_search_is_open_access_only():
     oa_work = {
-        "id": "https://openalex.org/W201", "title": "Open access steel paper",
+        "id": "https://openalex.org/W201", "title": "Open access steel paper", "type": "article",
         "publication_year": 2024, "open_access": {"is_oa": True, "oa_status": "gold", "oa_url": "https://repo.example/oa"},
         "best_oa_location": {"is_oa": True, "pdf_url": "https://repo.example/oa.pdf", "landing_page_url": "https://repo.example/oa"},
         "locations": [
@@ -52,7 +52,7 @@ def test_openalex_search_is_open_access_only():
         "primary_location": {"is_oa": False, "pdf_url": "https://publisher.example/paywalled.pdf"}
     }
     closed_work = {
-        "id": "https://openalex.org/W202", "title": "Closed access steel paper",
+        "id": "https://openalex.org/W202", "title": "Closed access steel paper", "type": "article",
         "publication_year": 2024, "open_access": {"is_oa": False, "oa_status": "closed"},
         "best_oa_location": None, "locations": [],
     }
@@ -124,6 +124,33 @@ def test_unpaywall_resolver_requires_oa_confirmation():
     print("PASS Unpaywall URLs are used only after explicit OA confirmation")
 
 
+def test_run_research_hard_cap_and_oa_boundary():
+    six = []
+    six_docs = []
+    for i in range(6):
+        six.append({
+            "id": f"https://openalex.org/W{i+500}", "title": f"OA steel study {i}",
+            "year": 2024, "type": "article", "is_oa": True,
+            "oa_status": "green", "doi": f"10.5555/{i}",
+            "abstract": "A steel study with abstract and experimental analysis."
+        })
+        six_docs.append({
+            "status": "abstract_only", "source_url": "", "format": "abstract",
+            "text": six[-1]["abstract"], "pages": [], "tables": [], "reason": "test"
+        })
+    # Include a non-OA item to ensure the pipeline boundary excludes it.
+    six.append({
+        "id": "https://openalex.org/W999", "title": "Closed steel study",
+        "year": 2024, "type": "article", "is_oa": False, "abstract": "Not OA"
+    })
+    with patch("research_engine.search_openalex", return_value=six), patch("research_engine.obtain_fulltext", side_effect=six_docs):
+        result = run_research("steel", 2020, 2026, 3)
+    assert len(result["papers"]) == 3
+    assert all(p["is_oa"] is True and p["type"] in {"article", "review"} for p in result["papers"])
+    assert result["requested_max_papers"] == 3 and result["returned_papers"] == 3
+    print("PASS final pipeline OA/type guard and hard maximum article count")
+
+
 if __name__=="__main__":
     test_fallback_pipeline(); test_llm_pipeline(); test_text_selection_and_normalization()
-    test_openalex_search_is_open_access_only(); test_model_quotes_are_verified_against_source(); test_unpaywall_resolver_requires_oa_confirmation()
+    test_openalex_search_is_open_access_only(); test_model_quotes_are_verified_against_source(); test_unpaywall_resolver_requires_oa_confirmation(); test_run_research_hard_cap_and_oa_boundary()
