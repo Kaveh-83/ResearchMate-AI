@@ -240,4 +240,4 @@ else:
             st.rerun()
 
 st.divider()
-st.caption("ResearchMate AI 1.0 experimental | OpenAlex + Europe PMC + OA full-text extraction + evidence-aware synthesis")
+st.caption(f"ResearchMate AI 1.1.1 | Build {APP_BUILD_ID} | OpenAlex + Europe PMC + Unpaywall + OA full-text extraction + evidence-aware synthesis")
