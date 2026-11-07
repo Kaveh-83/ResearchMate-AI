@@ -70,8 +70,8 @@ def search_openalex(query: str, year_from: int, year_to: int, limit: int = 30, a
         if not item.get("title"):
             continue
         work = normalize_work(item)
-        # Defense in depth: only retain records explicitly marked OA by OpenAlex.
-        if not work.get("is_oa"):
+        # Defense in depth: retain only explicitly OA journal articles and reviews.
+        if work.get("is_oa") is not True or work.get("type") not in {"article", "review"}:
             continue
         results.append(work)
         if len(results) >= requested_limit:
@@ -655,7 +655,12 @@ def run_research(query: str, year_from: int, year_to: int, max_papers: int = 12,
                  unpaywall_email: str = "") -> dict:
     if not clean_text(query):
         raise ValueError("موضوع پژوهش خالی است")
-    papers = search_openalex(query, year_from, year_to, max_papers, api_key=openalex_api_key)
+    requested_limit = min(max(int(max_papers), 1), 50)
+    papers = search_openalex(query, year_from, year_to, requested_limit, api_key=openalex_api_key)
+    # Final pipeline guard: never allow non-OA or non-article/review records into analysis.
+    papers = [p for p in papers if p.get("is_oa") is True and p.get("type") in {"article", "review"}]
+    # Final hard cap, even if a cached/alternate search provider returns excess records.
+    papers = papers[:requested_limit]
     if not papers:
         raise RuntimeError("در این بازه، مقاله یا مقاله‌مرورِ دارای برچسب دسترسی‌آزاد (Open Access) در OpenAlex پیدا نشد. عبارت جست‌وجو یا بازه زمانی را تغییر بده.")
     analyses, docs, logs = [], [], []
@@ -688,7 +693,8 @@ def run_research(query: str, year_from: int, year_to: int, max_papers: int = 12,
         logs.append("کلید مدل/رضایت ارسال متن فعال نبود؛ تحلیل در حالت قواعد و استخراج شواهد انجام شد.")
     return {
         "query": query, "year_from": year_from, "year_to": year_to,
-        "search_scope": "OpenAlex open_access.is_oa:true; type:article|review", "papers": papers,
+        "search_scope": "OpenAlex open_access.is_oa:true; type:article|review",
+        "requested_max_papers": requested_limit, "returned_papers": len(papers), "papers": papers,
         "documents": docs, "analyses": analyses, "synthesis": synthesis, "logs": logs,
         "run_id": hashlib.sha256((query + str(time.time())).encode()).hexdigest()[:12],
         "llm_enabled": synthesis.get("analysis_mode") == "llm_cross_paper_synthesis"
