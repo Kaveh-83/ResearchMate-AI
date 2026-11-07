@@ -165,6 +165,28 @@ def _extract_pdf(data: bytes) -> tuple[str, list[dict], list[list[list[str]]]]:
     return "\n\n".join(full)[:100000], pages, all_tables
 
 
+def _find_europe_pmc_pmcid(doi: str) -> str:
+    """Resolve a DOI to a Europe PMC record only when the record is explicitly OA."""
+    if not doi:
+        return ""
+    try:
+        response = requests.get(
+            f"{EUROPE_PMC}/search",
+            params={"query": f'EXT_ID:"{doi.strip()}"', "format": "json", "resultType": "core", "pageSize": 3},
+            timeout=20, headers={"User-Agent": USER_AGENT}
+        )
+        response.raise_for_status()
+        payload = response.json()
+        for item in (payload.get("resultList") or {}).get("result", []):
+            pmcid = item.get("pmcid") or ""
+            is_oa = str(item.get("isOpenAccess", "")).upper() == "Y"
+            if pmcid and is_oa:
+                return pmcid
+    except Exception:
+        return ""
+    return ""
+
+
 def _extract_pmc_xml(pmcid: str) -> tuple[str, list[dict], list[list[list[str]]]] | None:
     if not pmcid:
         return None
@@ -310,11 +332,15 @@ def obtain_fulltext(paper: dict, openalex_api_key: str = "", unpaywall_email: st
                     "format": "pdf", "text": body, "pages": pages, "tables": tables,
                     "reason": "PDF دسترسی‌آزاد از مخزن متن کامل OpenAlex دریافت و استخراج شد"}
 
-    if paper.get("pmcid"):
-        xml_result = _extract_pmc_xml(paper["pmcid"])
+    pmcid = paper.get("pmcid") or ""
+    # If OpenAlex has no PMCID, resolve the DOI through Europe PMC and require isOpenAccess=Y.
+    if not pmcid:
+        pmcid = _find_europe_pmc_pmcid(paper.get("doi", ""))
+    if pmcid:
+        xml_result = _extract_pmc_xml(pmcid)
         if xml_result and len(xml_result[0]) > 800:
             body, pages, tables = xml_result
-            return {"status": "full_text", "source_url": f"{EUROPE_PMC}/PMC{paper['pmcid'].rsplit('/',1)[-1]}/fullTextXML",
+            return {"status": "full_text", "source_url": f"{EUROPE_PMC}/PMC{pmcid.rsplit('/',1)[-1]}/fullTextXML",
                     "format": "xml", "text": body, "pages": pages, "tables": tables, "reason": "متن XML آزاد از Europe PMC"}
 
     candidates = list(paper.get("pdf_urls") or [])
