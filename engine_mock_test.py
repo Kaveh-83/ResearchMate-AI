@@ -1,6 +1,6 @@
 """Deterministic no-network tests for the ResearchMate research pipeline."""
 from unittest.mock import patch
-from research_engine import run_research, rule_based_analysis, normalize_work, select_analysis_text, search_openalex, analyze_one_with_llm
+from research_engine import run_research, rule_based_analysis, normalize_work, select_analysis_text, search_openalex, analyze_one_with_llm, _unpaywall_oa_urls
 
 PAPERS = [
     {"id":"https://openalex.org/W101","title":"Random forest prediction of BOF endpoint temperature","year":2024,"doi":"10.5555/a","authors":["A Author"],"authors_text":"A Author","journal":"Steel Journal","citations":8,"oa_status":"gold","oa_url":"https://oa.example/a.pdf","abstract":"This study used random forest to predict BOF endpoint temperature. Results showed RMSE 8.5 °C using 1200 heats. Limitations include plant-specific data.","is_oa":True},
@@ -93,6 +93,37 @@ def test_model_quotes_are_verified_against_source():
     print("PASS model quotations and page numbers are checked against source text")
 
 
+def test_unpaywall_resolver_requires_oa_confirmation():
+    class FakeResponse:
+        def __init__(self, payload):
+            self.payload = payload
+        def raise_for_status(self):
+            return None
+        def json(self):
+            return self.payload
+
+    oa_payload = {
+        "is_oa": True,
+        "best_oa_location": {
+            "url_for_pdf": "https://repository.example/paper.pdf",
+            "url": "https://repository.example/paper"
+        },
+        "oa_locations": [{"url_for_landing_page": "https://publisher.example/open"}]
+    }
+    closed_payload = {"is_oa": False, "best_oa_location": None, "oa_locations": []}
+    with patch("research_engine.requests.get", side_effect=[FakeResponse(oa_payload), FakeResponse(closed_payload)]) as client:
+        urls = _unpaywall_oa_urls("10.1234/example", "researcher@example.org")
+        closed_urls = _unpaywall_oa_urls("10.1234/closed", "researcher@example.org")
+    assert urls == [
+        "https://repository.example/paper.pdf",
+        "https://repository.example/paper",
+        "https://publisher.example/open"
+    ]
+    assert closed_urls == []
+    assert client.call_args_list[0].kwargs["params"]["email"] == "researcher@example.org"
+    print("PASS Unpaywall URLs are used only after explicit OA confirmation")
+
+
 if __name__=="__main__":
     test_fallback_pipeline(); test_llm_pipeline(); test_text_selection_and_normalization()
-    test_openalex_search_is_open_access_only(); test_model_quotes_are_verified_against_source()
+    test_openalex_search_is_open_access_only(); test_model_quotes_are_verified_against_source(); test_unpaywall_resolver_requires_oa_confirmation()
