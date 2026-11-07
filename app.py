@@ -117,8 +117,10 @@ else:
     with tabs[0]:
         rows=[]
         for p,doc in zip(papers,docs):
-            rows.append({"عنوان":p.get("title"),"سال":p.get("year"),"نشریه":p.get("journal"),"استناد":p.get("citations"),
+            rows.append({"عنوان":p.get("title"),"سال":p.get("year"),"نوع سند":p.get("type"),
+                         "Open Access": "بله" if p.get("is_oa") else "خیر",
                          "وضعیت OA":p.get("oa_status"),"مجوز":p.get("license"),"پیوندهای OA":p.get("oa_location_count", 0),
+                         "نشریه":p.get("journal"),"استناد":p.get("citations"),
                          "وضعیت متن":doc.get("status"),"DOI":p.get("doi"),"منبع متن":doc.get("source_url") or p.get("oa_url")})
         st.dataframe(pd.DataFrame(rows), use_container_width=True, hide_index=True)
         st.caption("دامنه جست‌وجو: OpenAlex با فیلتر Open Access و نوع مقاله/مقاله‌مرور. رکوردهای OA که دانلود متن کامل آن‌ها ناموفق باشد حذف نمی‌شوند؛ تفاوت «متن کامل»، «فقط چکیده» و «فراداده» در قدرت شواهد مهم است.")
@@ -126,7 +128,8 @@ else:
             with st.expander(p.get("title","مقاله بدون عنوان")):
                 st.write(f"سال: {p.get('year')} | نویسندگان: {p.get('authors_text') or 'نامشخص'}")
                 st.write(f"DOI: {p.get('doi') or 'ثبت نشده'} | مجله: {p.get('journal') or 'نامشخص'}")
-                st.write(f"وضعیت دسترسی در OpenAlex: {p.get('oa_status') or 'نامشخص'} | مجوز ثبت‌شده: {p.get('license') or 'نامشخص'}")
+                st.write(f"نوع سند: {p.get('type') or 'نامشخص'} | Open Access: {'بله' if p.get('is_oa') else 'خیر'}")
+                st.write(f"وضعیت دسترسی در OpenAlex: {p.get('oa_status') or 'نامشخص'} | مجوز ثبت‌شده: {p.get('license') or 'نامشخص'} | تعداد محل‌های OA: {p.get('oa_location_count', 0)}")
                 st.write(f"وضعیت: {doc.get('status')} | علت: {doc.get('reason')}")
                 if doc.get("source_url"): st.markdown(f"[مشاهده نسخه آزاد دریافت‌شده]({doc['source_url']})")
                 if p.get("abstract"): st.markdown("**چکیده:** " + p["abstract"][:2500])
