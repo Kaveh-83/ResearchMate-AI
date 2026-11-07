@@ -26,8 +26,8 @@ A research workflow for automatic scholarly discovery, legal open-access full-te
 1. Push the repository to GitHub.
 2. In Streamlit Community Cloud, deploy `app.py` from branch `main`.
 3. The app installs packages from `requirements.txt`.
-4. For deeper LLM analysis, create a Gemini API key in Google AI Studio. Add it to Streamlit Community Cloud → App → Settings → Secrets as `GEMINI_API_KEY = \"your-key\"`, or enter it in the sidebar at runtime. Then explicitly enable the consent checkbox. Never commit the key or paste it into `app.py`.
-5. An optional OpenAlex API key can be stored as `OPENALEX_API_KEY = \"your-key\"` in the same Secrets panel. Basic OpenAlex search does not require a key; the key increases the API allowance and enables access to OpenAlex's cached full-text endpoints when available.
+4. For deeper LLM analysis, create a Gemini API key in Google AI Studio. Add it to Streamlit Community Cloud → App → Settings → Secrets as `GEMINI_API_KEY = "your-key"`, or enter it in the sidebar at runtime. Then explicitly enable the consent checkbox. Never commit the key or paste it into `app.py`.
+5. An optional OpenAlex API key can be stored as `OPENALEX_API_KEY = "your-key"` in the same Secrets panel. Basic OpenAlex search does not require a key; the key increases the API allowance and enables access to OpenAlex's cached full-text endpoints when available.
 
 ## Local run
 
