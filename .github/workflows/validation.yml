@@ -2,7 +2,7 @@ name: ResearchMate validation
 
 on:
   push:
-    branches: [main]
+    branches: [main, "feature/**"]
   pull_request:
     branches: [main]
 
@@ -15,8 +15,9 @@ jobs:
         with:
           python-version: "3.11"
       - run: python -m pip install --upgrade pip requests
-      - run: python -m py_compile app.py research_engine.py outputs.py engine_mock_test.py smoke_test.py
+      - run: python -m py_compile app.py research_engine.py outputs.py engine_mock_test.py smoke_test.py llm_providers.py agent_orchestrator.py multi_agent_smoke_test.py
       - run: python engine_mock_test.py
+      - run: python multi_agent_smoke_test.py
 
   output-smoke:
     runs-on: ubuntu-latest
