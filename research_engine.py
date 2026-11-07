@@ -686,7 +686,7 @@ def fallback_synthesis(query: str, papers: list[dict], analyses: list[dict]) -> 
 def run_research(query: str, year_from: int, year_to: int, max_papers: int = 12,
                  api_key: str = "", model: str = "gemini-3.8-flash", openalex_api_key: str = "",
                  consent_to_send: bool = False, progress: Callable[[str, int, int], None] | None = None,
-                 unpaywall_email: str = "") -> dict:
+                 unpaywall_email: str = "", provider: str = "gemini") -> dict:
     if not clean_text(query):
         raise ValueError("موضوع پژوهش خالی است")
     requested_limit = min(max(int(max_papers), 1), 50)
