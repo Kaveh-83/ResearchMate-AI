@@ -41,7 +41,7 @@ streamlit run app.py
 
 ## Regression tests
 
-Run `python engine_mock_test.py` to test the fallback pipeline, mocked Gemini pipeline, OpenAlex Open Access filtering, exclusion of closed-access PDF locations, and source-verification of model quotations. Run `python smoke_test.py` to exercise the output package generators.
+Run `python engine_mock_test.py` to test the fallback pipeline, mocked Gemini pipeline, OpenAlex Open Access filtering, exclusion of closed-access PDF locations, and source-verification of model quotations. Run `python multi_agent_smoke_test.py` to test the provider registry, fallback behavior, and source-bound agent prompts. Run `python smoke_test.py` to exercise the output package generators.
 
 ## Outputs
 
