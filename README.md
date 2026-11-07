@@ -41,7 +41,7 @@ streamlit run app.py
 
 ## Regression tests
 
-Run `python engine_mock_test.py` to test the fallback pipeline, mocked Gemini pipeline, OpenAlex Open Access filtering, exclusion of closed-access PDF locations, and source-verification of model quotations. Run `python smoke_test.py` to exercise the output package generators.
+Run `python engine_mock_test.py` to test the fallback pipeline, mocked Gemini pipeline, OpenAlex Open Access filtering, exclusion of closed-access PDF locations, and source-verification of model quotations. Run `python multi_agent_smoke_test.py` to test the provider registry, fallback behavior, and source-bound agent prompts. Run `python smoke_test.py` to exercise the output package generators.
 
 ## Outputs
 
@@ -52,3 +52,20 @@ Run `python engine_mock_test.py` to test the fallback pipeline, mocked Gemini pi
 - `ResearchMate_References.bib`
 - `ResearchMate_Methodology_Audit.pdf`
 - A ZIP package of all successfully generated outputs, plus an optional output warning text file
+
+
+## Experimental cloud backend scaffold (not deployed)
+
+A minimal Cloudflare Worker + D1 job ledger is available under `cloudflare/worker/`. It is intentionally not wired into the Streamlit execution path yet.
+
+To provision it in your own Cloudflare account:
+1. Install Node.js and Wrangler, then authenticate with `npx wrangler login`.
+2. From `cloudflare/worker`, create the D1 database: `npx wrangler d1 create researchmate-db`.
+3. Replace the placeholder `database_id` in `wrangler.toml` with the ID returned by Cloudflare.
+4. Apply the schema: `npx wrangler d1 execute researchmate-db --file=schema.sql`.
+5. Set a long random API token: `npx wrangler secret put APP_API_TOKEN`.
+6. Deploy: `npx wrangler deploy`.
+
+The Worker exposes authenticated job-create, job-status, and job-completion endpoints. The health endpoint is public and returns no user data. The API token must be stored as a server-side Streamlit Secret and must never be embedded in browser JavaScript or committed to GitHub.
+
+Important: this is a job-record API scaffold only. It does not yet launch GitHub Actions, call model providers, or process PDFs asynchronously. Do not treat a successful Worker deployment as a complete cloud research pipeline.
