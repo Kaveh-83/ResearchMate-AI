@@ -40,6 +40,9 @@ with st.sidebar:
     st.subheader("دریافت متن کامل آزاد از OpenAlex")
     openalex_api_key = st.text_input("کلید رایگان OpenAlex (اختیاری)", value=_read_secret("OPENALEX_API_KEY"), type="password", help="برای افزایش سهمیه API و دسترسی به فایل‌های ذخیره‌شده OpenAlex. می‌توانی آن را در Streamlit App settings → Secrets با نام OPENALEX_API_KEY ذخیره کنی.")
     st.caption("جست‌وجوی مقاله‌های Open Access بدون این کلید هم انجام می‌شود؛ کلید فقط سهمیه و مسیرهای بازیابی متن ذخیره‌شده را بهبود می‌دهد.")
+    unpaywall_email = st.text_input("ایمیل Unpaywall (اختیاری)", value=_read_secret("UNPAYWALL_EMAIL"), type="password",
+                                    help="برای جست‌وجوی نسخه آزاد تکمیلی بر اساس DOI. فقط به API رسمی Unpaywall فرستاده می‌شود؛ می‌توانی آن را در Secrets با نام UNPAYWALL_EMAIL ذخیره کنی.")
+    st.caption("این بازیاب مکمل، فقط وقتی Unpaywall وجود نسخه Open Access را تأیید کند، پیوند آن را امتحان می‌کند.")
     st.divider()
     st.subheader("تحلیل عمیق با مدل زبانی")
     api_key = st.text_input("کلید API رایگان Gemini", value=_read_secret("GEMINI_API_KEY"), type="password", help="برای تحلیل عمیق مقاله‌به‌مقاله و سنتز بین‌مقاله‌ای لازم است. می‌توانی آن را در Streamlit App settings → Secrets با نام GEMINI_API_KEY ذخیره کنی؛ هرگز کلید را در GitHub یا کد قرار نده.")
@@ -68,7 +71,7 @@ if run_btn:
             with st.spinner("در حال جست‌وجو، دریافت متن کامل و تحلیل شواهد..."):
                 bundle = run_research(topic.strip(), int(year_from), int(year_to), int(max_papers),
                                       api_key=api_key.strip(), model=model, openalex_api_key=openalex_api_key.strip(), consent_to_send=consent,
-                                      progress=update_progress)
+                                      progress=update_progress, unpaywall_email=unpaywall_email.strip())
             st.session_state["research_bundle"] = bundle
             st.session_state.pop("research_files", None)
             progress.progress(1.0)
