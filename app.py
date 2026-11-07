@@ -2,9 +2,10 @@ from __future__ import annotations
 import os, tempfile, json
 import streamlit as st
 import pandas as pd
-from research_engine import run_research
+from research_engine import run_research, fallback_synthesis, synthesize_with_llm
 from outputs import package_outputs
 
+APP_BUILD_ID = "2026-11-07.3"
 st.set_page_config(page_title="ResearchMate AI | Scientific Research Agent", page_icon="🔬", layout="wide")
 st.markdown("""
 <style>
@@ -18,7 +19,7 @@ html, body, [data-testid="stAppViewContainer"] { direction: rtl; }
 """, unsafe_allow_html=True)
 
 st.title("🔬 ResearchMate AI")
-st.caption("نسخه ۱٫۱ | جست‌وجوی Open Access و تحلیل شواهد علمی")
+st.caption(f"نسخه ۱٫۱٫۱ | جست‌وجوی Open Access و تحلیل شواهد علمی | Build {APP_BUILD_ID}")
 st.info("جست‌وجو فقط در میان مقاله‌ها و مقاله‌مرورهای دارای برچسب دسترسی‌آزاد (Open Access) انجام می‌شود. برنامه سپس نسخه‌های قانونی و آزاد متن کامل را دریافت می‌کند. آزاد بودن رکورد لزوماً به معنی موفقیت دانلود/استخراج متن نیست؛ موارد ناموفق با سطح شواهد چکیده یا فراداده باقی می‌مانند.")
 
 def _read_secret(name: str) -> str:
@@ -72,6 +73,39 @@ if run_btn:
                 bundle = run_research(topic.strip(), int(year_from), int(year_to), int(max_papers),
                                       api_key=api_key.strip(), model=model, openalex_api_key=openalex_api_key.strip(), consent_to_send=consent,
                                       progress=update_progress, unpaywall_email=unpaywall_email.strip())
+            # Final UI-side eligibility and hard-cap guard. This also protects the app
+            # if a deployment temporarily serves an older cached engine module.
+            aligned = [
+                (p, doc, analysis)
+                for p, doc, analysis in zip(bundle.get("papers", []), bundle.get("documents", []), bundle.get("analyses", []))
+                if p.get("is_oa") is True and p.get("type") in {"article", "review"}
+            ]
+            requested_limit = min(max(int(max_papers), 1), 50)
+            selected = aligned[:requested_limit]
+            if not selected:
+                raise RuntimeError("پس از اعمال فیلتر نهایی Open Access و نوع مقاله/مقاله‌مرور، رکورد معتبری باقی نماند.")
+            bundle["papers"] = [item[0] for item in selected]
+            bundle["documents"] = [item[1] for item in selected]
+            bundle["analyses"] = [item[2] for item in selected]
+            bundle["requested_max_papers"] = requested_limit
+            bundle["returned_papers"] = len(selected)
+            if len(aligned) != len(selected):
+                bundle.setdefault("logs", []).append(
+                    f"کنترل نهایی رابط: از {len(aligned)} رکورد OA واجد شرایط، {len(selected)} رکورد مطابق سقف درخواستی {requested_limit} نگه داشته شد."
+                )
+                if api_key.strip() and consent:
+                    try:
+                        bundle["synthesis"] = synthesize_with_llm(
+                            topic.strip(), bundle["papers"], bundle["analyses"], api_key.strip(), model
+                        )
+                        bundle["llm_enabled"] = True
+                    except Exception as llm_exc:
+                        bundle["synthesis"] = fallback_synthesis(topic.strip(), bundle["papers"], bundle["analyses"])
+                        bundle["synthesis"]["llm_error"] = str(llm_exc)[:250]
+                        bundle["llm_enabled"] = False
+                else:
+                    bundle["synthesis"] = fallback_synthesis(topic.strip(), bundle["papers"], bundle["analyses"])
+                    bundle["llm_enabled"] = False
             st.session_state["research_bundle"] = bundle
             st.session_state.pop("research_files", None)
             progress.progress(1.0)
@@ -98,6 +132,7 @@ else:
     full_count = sum(1 for d in docs if d.get("status")=="full_text")
     abstract_count = sum(1 for d in docs if d.get("status")=="abstract_only")
     metadata_count = sum(1 for d in docs if d.get("status")=="metadata_only")
+    st.caption(f"سقف درخواستی: {bundle.get('requested_max_papers', max_papers)} | رکوردهای نهایی: {bundle.get('returned_papers', len(papers))} | Build: {APP_BUILD_ID}")
     a,b,c,d = st.columns(4)
     a.metric("رکوردهای بازیابی‌شده", len(papers))
     b.metric("متن کامل دریافت‌شده", full_count)
