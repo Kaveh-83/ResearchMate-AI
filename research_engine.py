@@ -403,9 +403,26 @@ def gemini_generate(prompt: str, api_key: str, model: str = "gemini-3.8-flash", 
             response.raise_for_status()
             payload = response.json()
             break
+        except requests.HTTPError as exc:
+            response = exc.response
+            status = getattr(response, "status_code", None)
+            message = ""
+            try:
+                error_payload = response.json()
+                message = clean_text((error_payload.get("error") or {}).get("message", ""))
+            except Exception:
+                message = ""
+            if attempt == 2 or status not in (429, 500, 502, 503, 504):
+                detail = f"HTTP {status}" if status else "HTTP error"
+                if message:
+                    detail += f": {message[:350]}"
+                raise RuntimeError(f"درخواست Gemini ناموفق بود ({detail}). کلید، دسترسی مدل و سهمیه API را بررسی کن.") from None
+            last_error = exc
+            time.sleep(2 ** (attempt + 1))
         except requests.RequestException as exc:
             last_error = exc
-            if attempt == 2: raise
+            if attempt == 2:
+                raise RuntimeError("ارتباط با Gemini ناموفق بود؛ اتصال اینترنت یا محدودیت شبکه را بررسی کن.") from None
             time.sleep(2 ** (attempt + 1))
     else:
         raise RuntimeError(str(last_error or "درخواست مدل ناموفق بود"))
