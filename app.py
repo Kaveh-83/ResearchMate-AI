@@ -18,8 +18,15 @@ html, body, [data-testid="stAppViewContainer"] { direction: rtl; }
 """, unsafe_allow_html=True)
 
 st.title("🔬 ResearchMate AI")
-st.caption("نسخه ۱٫۰ آزمایشی | عامل پژوهشی برای دریافت، خواندن، مقایسه و سنتز شواهد علمی")
-st.info("این برنامه خودش مقاله‌های علمی را جست‌وجو می‌کند و نسخه‌های قانونی و آزاد متن کامل را دریافت می‌کند. بارگذاری PDF اجباری نیست. مقاله‌های فاقد متن کامل حذف نمی‌شوند؛ سطح شواهد آن‌ها به چکیده یا فراداده محدود می‌ماند.")
+st.caption("نسخه ۱٫۱ | جست‌وجوی Open Access و تحلیل شواهد علمی")
+st.info("جست‌وجو فقط در میان مقاله‌ها و مقاله‌مرورهای دارای برچسب دسترسی‌آزاد (Open Access) انجام می‌شود. برنامه سپس نسخه‌های قانونی و آزاد متن کامل را دریافت می‌کند. آزاد بودن رکورد لزوماً به معنی موفقیت دانلود/استخراج متن نیست؛ موارد ناموفق با سطح شواهد چکیده یا فراداده باقی می‌مانند.")
+
+def _read_secret(name: str) -> str:
+    try:
+        return str(st.secrets.get(name, "") or "")
+    except Exception:
+        return ""
+
 
 with st.sidebar:
     st.header("تعریف پروژه پژوهشی")
@@ -31,14 +38,19 @@ with st.sidebar:
     max_papers = st.slider("حداکثر تعداد مقاله برای این اجرا", min_value=5, max_value=15, value=8)
     st.divider()
     st.subheader("دریافت متن کامل آزاد از OpenAlex")
-    openalex_api_key = st.text_input("کلید رایگان OpenAlex (اختیاری)", type="password", help="با کلید رایگان، امکان استفاده از نسخه‌های PDF و XML ذخیره‌شده در مخزن متن کامل OpenAlex هم فعال می‌شود. کلید فقط در همین نشست استفاده می‌شود.")
-    st.caption("بدون این کلید نیز برنامه پیوندهای آزاد ناشران و مخازن و متن Europe PMC را امتحان می‌کند.")
+    openalex_api_key = st.text_input("کلید رایگان OpenAlex (اختیاری)", value=_read_secret("OPENALEX_API_KEY"), type="password", help="برای افزایش سهمیه API و دسترسی به فایل‌های ذخیره‌شده OpenAlex. می‌توانی آن را در Streamlit App settings → Secrets با نام OPENALEX_API_KEY ذخیره کنی.")
+    st.caption("جست‌وجوی مقاله‌های Open Access بدون این کلید هم انجام می‌شود؛ کلید فقط سهمیه و مسیرهای بازیابی متن ذخیره‌شده را بهبود می‌دهد.")
     st.divider()
     st.subheader("تحلیل عمیق با مدل زبانی")
-    api_key = st.text_input("کلید API رایگان Gemini (اختیاری)", type="password", help="کلید فقط در همین نشست استفاده می‌شود و در مخزن کد ذخیره نمی‌شود.")
+    api_key = st.text_input("کلید API رایگان Gemini", value=_read_secret("GEMINI_API_KEY"), type="password", help="برای تحلیل عمیق مقاله‌به‌مقاله و سنتز بین‌مقاله‌ای لازم است. می‌توانی آن را در Streamlit App settings → Secrets با نام GEMINI_API_KEY ذخیره کنی؛ هرگز کلید را در GitHub یا کد قرار نده.")
     model = st.selectbox("مدل", ["gemini-3.8-flash", "gemini-3.7-flash", "gemini-3.5-flash-lite"], index=0)
     consent = st.checkbox("رضایت می‌دهم متن مقاله‌های آزاد و فراداده آن‌ها برای تحلیل به Google Gemini ارسال شود. از شرایط استفاده و حریم خصوصی پلن رایگان آگاه هستم.", value=False)
-    st.caption("بدون کلید و رضایت، برنامه از استخراج ساختاری و قواعد شفاف استفاده می‌کند؛ این حالت جایگزین استدلال مدل زبانی نیست.")
+    if not api_key.strip():
+        st.warning("کلید Gemini وارد نشده است؛ اجرا در حالت استخراج ساختاری خواهد بود و تحلیل عمیق انجام نمی‌شود.")
+    elif not consent:
+        st.info("کلید موجود است، اما تا زمانی که رضایت ارسال متن مقاله به Gemini را فعال نکنی، تحلیل مدل‌محور اجرا نمی‌شود.")
+    else:
+        st.caption("کلید وارد شده و رضایت فعال است؛ پس از اجرا، وضعیت واقعی فراخوانی مدل در گزارش نمایش داده می‌شود.")
     run_btn = st.button("اجرای پژوهش کامل", type="primary", use_container_width=True)
 
 if run_btn:
@@ -89,22 +101,32 @@ else:
     c.metric("فقط چکیده", abstract_count)
     d.metric("فقط فراداده", metadata_count)
     if bundle.get("llm_enabled"):
-        st.success("تحلیل مدل‌محور و سنتز بین‌مقاله‌ای اجرا شده است؛ ارجاعات و شواهد را همچنان کنترل کن.")
+        st.success("تحلیل مدل‌محور و سنتز بین‌مقاله‌ای اجرا شده است. نقل‌قول‌ها با متن منبع تطبیق داده شده‌اند؛ با این حال، نتیجه‌گیری‌ها همچنان به بازبینی پژوهشگر نیاز دارند.")
     else:
-        st.warning("تحلیل عمیق مدل‌محور در این اجرا فعال نشده است. خروجی فعلی، استخراج ساختاری/قاعده‌محور و جمع‌بندی محافظه‌کارانه است؛ آن را مقاله مروری نهایی یا داوری علمی تلقی نکن.")
+        llm_error = synthesis.get("llm_error")
+        if llm_error:
+            st.error(f"تحلیل Gemini اجرا نشد: {llm_error}")
+        elif not api_key.strip():
+            st.warning("تحلیل عمیق اجرا نشده است، چون کلید Gemini ارائه نشده. جست‌وجوی OA و استخراج اولیه مستقل از Gemini انجام شده‌اند.")
+        elif not consent:
+            st.warning("تحلیل عمیق اجرا نشده است، چون رضایت ارسال متن مقاله به Gemini فعال نشده است.")
+        else:
+            st.warning("تحلیل عمیق مدل‌محور کامل نشد؛ گزارش اجرا را برای علت دقیق بررسی کن. خروجی فعلی تحلیل نهایی علمی نیست.")
 
     tabs = st.tabs(["نمای کلی و دسترسی", "تحلیل تک‌مقاله‌ای", "مقایسه و سنتز", "شکاف‌ها و نتیجه", "خروجی‌های علمی", "گزارش اجرا"])
     with tabs[0]:
         rows=[]
         for p,doc in zip(papers,docs):
             rows.append({"عنوان":p.get("title"),"سال":p.get("year"),"نشریه":p.get("journal"),"استناد":p.get("citations"),
+                         "وضعیت OA":p.get("oa_status"),"مجوز":p.get("license"),"پیوندهای OA":p.get("oa_location_count", 0),
                          "وضعیت متن":doc.get("status"),"DOI":p.get("doi"),"منبع متن":doc.get("source_url") or p.get("oa_url")})
         st.dataframe(pd.DataFrame(rows), use_container_width=True, hide_index=True)
-        st.caption("رکوردهای فاقد متن کامل حذف نشده‌اند. تفاوت «متن کامل»، «فقط چکیده» و «فراداده» در ارزیابی قدرت شواهد مهم است.")
+        st.caption("دامنه جست‌وجو: OpenAlex با فیلتر Open Access و نوع مقاله/مقاله‌مرور. رکوردهای OA که دانلود متن کامل آن‌ها ناموفق باشد حذف نمی‌شوند؛ تفاوت «متن کامل»، «فقط چکیده» و «فراداده» در قدرت شواهد مهم است.")
         for p,doc in zip(papers,docs):
             with st.expander(p.get("title","مقاله بدون عنوان")):
                 st.write(f"سال: {p.get('year')} | نویسندگان: {p.get('authors_text') or 'نامشخص'}")
                 st.write(f"DOI: {p.get('doi') or 'ثبت نشده'} | مجله: {p.get('journal') or 'نامشخص'}")
+                st.write(f"وضعیت دسترسی در OpenAlex: {p.get('oa_status') or 'نامشخص'} | مجوز ثبت‌شده: {p.get('license') or 'نامشخص'}")
                 st.write(f"وضعیت: {doc.get('status')} | علت: {doc.get('reason')}")
                 if doc.get("source_url"): st.markdown(f"[مشاهده نسخه آزاد دریافت‌شده]({doc['source_url']})")
                 if p.get("abstract"): st.markdown("**چکیده:** " + p["abstract"][:2500])
