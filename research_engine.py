@@ -2,11 +2,12 @@
 from __future__ import annotations
 import json, re, time, hashlib, textwrap
 from typing import Any, Callable
-from urllib.parse import urlparse
+from urllib.parse import urlparse, quote
 import requests
 
 OPENALEX = "https://api.openalex.org/works"
 EUROPE_PMC = "https://www.ebi.ac.uk/europepmc/webservices/rest"
+UNPAYWALL = "https://api.unpaywall.org/v2"
 GEMINI_BASE = "https://generativelanguage.googleapis.com/v1beta/models"
 USER_AGENT = "ResearchMateAI/1.0 (open-access scholarly literature review; contact via app)"
 MAX_PDF_BYTES = 12 * 1024 * 1024
@@ -261,7 +262,34 @@ def _extract_openalex_pdf(work_id: str, api_key: str) -> tuple[str, list[dict], 
     return None
 
 
-def obtain_fulltext(paper: dict, openalex_api_key: str = "") -> dict:
+def _unpaywall_oa_urls(doi: str, email: str) -> list[str]:
+    """Return only URLs from an Unpaywall record explicitly marked Open Access."""
+    if not doi or not email:
+        return []
+    try:
+        doi_path = quote(doi.strip(), safe="/")
+        response = requests.get(f"{UNPAYWALL}/{doi_path}", params={"email": email.strip()},
+                                timeout=20, headers={"User-Agent": USER_AGENT})
+        response.raise_for_status()
+        record = response.json()
+        if not record.get("is_oa"):
+            return []
+        locations = [record.get("best_oa_location"), *(record.get("oa_locations") or [])]
+        urls = []
+        for location in locations:
+            if not isinstance(location, dict):
+                continue
+            for key in ("url_for_pdf", "url", "url_for_landing_page"):
+                url = location.get(key)
+                if url and urlparse(url).scheme in {"http", "https"} and url not in urls:
+                    urls.append(url)
+        return urls
+    except Exception:
+        # Resolver failure is non-fatal; never expose the supplied email in logs.
+        return []
+
+
+def obtain_fulltext(paper: dict, openalex_api_key: str = "", unpaywall_email: str = "") -> dict:
     """Try OA XML/PDF routes automatically. Never attempts paywall bypass."""
     if openalex_api_key and (paper.get("has_content", {}).get("grobid_xml") or paper.get("content_urls", {}).get("grobid_xml")):
         tei = _extract_openalex_tei(paper.get("id", ""), openalex_api_key)
@@ -287,6 +315,10 @@ def obtain_fulltext(paper: dict, openalex_api_key: str = "") -> dict:
                     "format": "xml", "text": body, "pages": pages, "tables": tables, "reason": "متن XML آزاد از Europe PMC"}
 
     candidates = list(paper.get("pdf_urls") or [])
+    # Supplement OpenAlex locations with Unpaywall, but only when its own record confirms OA.
+    for unpaywall_url in _unpaywall_oa_urls(paper.get("doi", ""), unpaywall_email):
+        if unpaywall_url not in candidates:
+            candidates.append(unpaywall_url)
     # OpenAlex OA landing page may expose a PDF link.
     if paper.get("oa_url") and paper["oa_url"] not in candidates:
         candidates.append(paper["oa_url"])
@@ -616,7 +648,8 @@ def fallback_synthesis(query: str, papers: list[dict], analyses: list[dict]) -> 
 
 def run_research(query: str, year_from: int, year_to: int, max_papers: int = 12,
                  api_key: str = "", model: str = "gemini-3.8-flash", openalex_api_key: str = "",
-                 consent_to_send: bool = False, progress: Callable[[str, int, int], None] | None = None) -> dict:
+                 consent_to_send: bool = False, progress: Callable[[str, int, int], None] | None = None,
+                 unpaywall_email: str = "") -> dict:
     if not clean_text(query):
         raise ValueError("موضوع پژوهش خالی است")
     papers = search_openalex(query, year_from, year_to, max_papers, api_key=openalex_api_key)
@@ -625,7 +658,7 @@ def run_research(query: str, year_from: int, year_to: int, max_papers: int = 12,
     analyses, docs, logs = [], [], []
     total = len(papers)
     for idx, paper in enumerate(papers, 1):
-        doc = obtain_fulltext(paper, openalex_api_key=openalex_api_key)
+        doc = obtain_fulltext(paper, openalex_api_key=openalex_api_key, unpaywall_email=unpaywall_email)
         docs.append(doc)
         analysis = rule_based_analysis(paper, doc)
         if api_key and consent_to_send:
