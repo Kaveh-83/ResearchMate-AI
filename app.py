@@ -5,7 +5,7 @@ import pandas as pd
 from datetime import datetime
 from collections import Counter
 
-st.set_page_config(page_title="ResearchMate AI 0.2", page_icon="🔬", layout="wide")
+st.set_page_config(page_title="ResearchMate AI 0.3", page_icon="🔬", layout="wide")
 
 st.markdown("""
 <style>
@@ -17,7 +17,7 @@ h1,h2,h3,p,div,label { text-align: right; }
 """, unsafe_allow_html=True)
 
 st.title("🔬 ResearchMate AI")
-st.caption("نسخه ۰٫۲ | دستیار تحلیل ادبیات پژوهش برای پژوهشگر")
+st.caption("نسخه ۰٫۳ | دستیار تحلیل ادبیات پژوهش برای پژوهشگر")
 st.info("این نسخه از تحلیل متن و روش‌های آماری/زبانی شفاف استفاده می‌کند. پیشنهاد شکاف پژوهشی، نتیجه قطعی علمی نیست و باید با متن کامل مقالات و نظر متخصص بررسی شود.")
 
 # ---------- Helpers ----------
@@ -149,12 +149,19 @@ def make_pdf(title, query, papers, coverage, method_counts, gaps, feedback_rows)
     doc = SimpleDocTemplate(buf, pagesize=A4, rightMargin=17*mm, leftMargin=17*mm, topMargin=16*mm, bottomMargin=16*mm)
     styles = getSampleStyleSheet()
     font_name = "Helvetica"
-    font_path_candidates = [
+    # Use Matplotlib's bundled DejaVu Sans; Streamlit Cloud may lack system font paths.
+    font_path_candidates = []
+    try:
+        from matplotlib import font_manager
+        font_path_candidates.append(font_manager.findfont("DejaVu Sans"))
+    except Exception:
+        pass
+    font_path_candidates += [
         "/usr/share/fonts/truetype/dejavu/DejaVuSans.ttf",
         "/usr/share/fonts/truetype/dejavu/DejaVuSansCondensed.ttf"
     ]
     for fp in font_path_candidates:
-        if os.path.exists(fp):
+        if fp and os.path.exists(fp):
             try:
                 pdfmetrics.registerFont(TTFont("DejaVu", fp)); font_name = "DejaVu"; break
             except Exception: pass
@@ -197,6 +204,97 @@ def make_pdf(title, query, papers, coverage, method_counts, gaps, feedback_rows)
     doc.build(story)
     return buf.getvalue()
 
+
+def make_poster_pdf(query, papers, coverage, method_counts, gaps, limitations):
+    """Build a one-page A3 Persian research summary poster."""
+    from reportlab.lib.pagesizes import A3
+    from reportlab.platypus import SimpleDocTemplate, Paragraph, Spacer, Table, TableStyle
+    from reportlab.lib import colors
+    from reportlab.lib.styles import getSampleStyleSheet, ParagraphStyle
+    from reportlab.pdfbase import pdfmetrics
+    from reportlab.pdfbase.ttfonts import TTFont
+    from reportlab.lib.enums import TA_RIGHT, TA_CENTER
+    from reportlab.lib.units import mm
+
+    font_name = "Helvetica"
+    try:
+        from matplotlib import font_manager
+        fp = font_manager.findfont("DejaVu Sans")
+        pdfmetrics.registerFont(TTFont("PosterDejaVu", fp))
+        font_name = "PosterDejaVu"
+    except Exception:
+        pass
+    try:
+        import arabic_reshaper
+        from bidi.algorithm import get_display
+        def rtl(x): return get_display(arabic_reshaper.reshape(str(x)))
+    except Exception:
+        rtl = lambda x: str(x)
+
+    buf = io.BytesIO()
+    doc = SimpleDocTemplate(buf, pagesize=A3, rightMargin=15*mm, leftMargin=15*mm,
+                            topMargin=13*mm, bottomMargin=13*mm)
+    ss = getSampleStyleSheet()
+    title = ParagraphStyle("PosterTitle", parent=ss["Title"], fontName=font_name,
+                           fontSize=25, leading=31, alignment=TA_CENTER,
+                           textColor=colors.HexColor("#12304A"), spaceAfter=6*mm)
+    head = ParagraphStyle("PosterHead", parent=ss["Heading2"], fontName=font_name,
+                          fontSize=15, leading=20, alignment=TA_RIGHT,
+                          textColor=colors.HexColor("#126078"), spaceBefore=3*mm, spaceAfter=2*mm)
+    body = ParagraphStyle("PosterBody", parent=ss["BodyText"], fontName=font_name,
+                          fontSize=10, leading=15, alignment=TA_RIGHT, spaceAfter=2*mm)
+    small = ParagraphStyle("PosterSmall", parent=body, fontSize=8, leading=12)
+    story = [
+        Paragraph(rtl("پوستر خلاصه پژوهش | ResearchMate AI"), title),
+        Paragraph(rtl("موضوع پژوهش: " + query), head),
+        Paragraph(rtl("جمع‌بندی اکتشافی بر پایه فراداده و چکیده‌های مقالات بازیابی‌شده؛ نه مرور نظام‌مند."), body)
+    ]
+    stat = Table([
+        [Paragraph(rtl("مقالات بررسی‌شده"), body), Paragraph(rtl("محورهای موضوعی"), body), Paragraph(rtl("خانواده روش‌ها"), body)],
+        [Paragraph(str(len(papers)), body), Paragraph(str(len(coverage)), body), Paragraph(str(len(method_counts)), body)]
+    ], colWidths=[doc.width/3]*3, rowHeights=[12*mm,17*mm])
+    stat.setStyle(TableStyle([
+        ("BACKGROUND",(0,0),(-1,-1),colors.HexColor("#EAF3F7")),
+        ("BOX",(0,0),(-1,-1),0.8,colors.HexColor("#B7CBD6")),
+        ("INNERGRID",(0,0),(-1,-1),0.5,colors.white),
+        ("ALIGN",(0,0),(-1,-1),"CENTER"),("VALIGN",(0,0),(-1,-1),"MIDDLE")
+    ]))
+    story += [stat, Spacer(1,5*mm)]
+    left = [Paragraph(rtl("محورهای پرتکرار"), head)]
+    for k,v in coverage.most_common(8):
+        left.append(Paragraph(rtl(f"• {k}: {v} نشانه"), body))
+    left.append(Paragraph(rtl("روش‌های پژوهشی شناسایی‌شده"), head))
+    for k,v in method_counts.most_common(8):
+        left.append(Paragraph(rtl(f"• {k}: {v} مورد"), body))
+    right = [Paragraph(rtl("فرصت‌ها و پرسش‌های پژوهشی"), head)]
+    for i,g in enumerate(gaps[:5],1):
+        right.append(Paragraph(rtl(f"{i}. {g}"), body))
+    right.append(Paragraph(rtl("محدودیت‌های گزارش‌شده در چکیده‌ها"), head))
+    if limitations:
+        for _,s in limitations[:4]:
+            right.append(Paragraph(rtl("• "+s[:260]), small))
+    else:
+        right.append(Paragraph(rtl("محدودیت صریحی در چکیده‌های فعلی شناسایی نشد."), body))
+    cols = Table([[left,right]], colWidths=[doc.width*0.49,doc.width*0.49])
+    cols.setStyle(TableStyle([
+        ("VALIGN",(0,0),(-1,-1),"TOP"),("BOX",(0,0),(-1,-1),0.7,colors.HexColor("#C9D8E0")),
+        ("INNERGRID",(0,0),(-1,-1),0.7,colors.HexColor("#C9D8E0")),
+        ("BACKGROUND",(0,0),(-1,-1),colors.HexColor("#FBFCFD")),
+        ("LEFTPADDING",(0,0),(-1,-1),6*mm),("RIGHTPADDING",(0,0),(-1,-1),6*mm),
+        ("TOPPADDING",(0,0),(-1,-1),4*mm),("BOTTOMPADDING",(0,0),(-1,-1),4*mm)
+    ]))
+    story += [cols, Spacer(1,5*mm), Paragraph(rtl("مقالات شاخص در مجموعه"), head)]
+    for i,p in enumerate(papers[:7],1):
+        story.append(Paragraph(rtl(f"{i}. {p.get('عنوان','بدون عنوان')} ({p.get('سال','')}) | DOI: {p.get('DOI','ثبت نشده')}"), small))
+    story += [Spacer(1,4*mm), Paragraph(rtl(
+        "هشدار علمی: فراوانی کلیدواژه‌ها و دسته‌بندی روش‌ها تخمینی است. کم‌بودن تعداد نتایج به‌تنهایی "
+        "شکاف پژوهشی را اثبات نمی‌کند. برای نتیجه‌گیری معتبر باید متن کامل، طراحی مطالعه، داده‌ها، "
+        "نتایج و کیفیت منابع توسط پژوهشگر ارزیابی شود."
+    ), small)]
+    doc.build(story)
+    return buf.getvalue()
+
+
 # ---------- Sidebar ----------
 with st.sidebar:
     st.header("۱) جست‌وجوی ادبیات")
@@ -219,7 +317,7 @@ with st.sidebar:
 
 papers = st.session_state.get("papers", [])
 query = st.session_state.get("query", topic)
-tabs = st.tabs(["نمای کلی", "ارتباط مقالات", "روش‌شناسی", "شکاف‌های پژوهشی", "یادگیری و گزارش"])
+tabs = st.tabs(["نمای کلی", "ارتباط مقالات", "روش‌شناسی", "شکاف‌های پژوهشی", "یادگیری و گزارش", "پوستر پژوهشی"])
 
 if not papers:
     with tabs[0]:
@@ -323,7 +421,23 @@ else:
             except Exception as e: st.error(f"ساخت PDF ناموفق بود: {e}")
         if st.session_state.get("report_pdf"):
             st.download_button("دانلود گزارش پژوهشی PDF",st.session_state["report_pdf"],"ResearchMateAI_report.pdf","application/pdf")
-        st.caption("گزارش شامل دامنه بررسی، فهرست مقالات، روش‌های شناسایی‌شده، موضوعات پرتکرار، شکاف‌های احتمالی، بازخورد و محدودیت‌های تحلیل است.")
+
+        st.caption("گزارش شامل دامنه بررسی، فهرست مقالات، روش‌های شناسایی‌شده، موضوعات پرتکرار، شکاف‌های احتمالی، بازخورد و محدودیت‌های تحلیل.")
+    with tabs[5]:
+        st.subheader("ساخت پوستر خلاصه پژوهش")
+        st.write("پوستر یک‌صفحه‌ای A3 شامل موضوع، آمار مجموعه، محورهای پرتکرار، روش‌ها، فرصت‌های پژوهشی، محدودیت‌ها و مقالات شاخص است.")
+        st.info("پوستر بر اساس داده‌های فعلی و چکیده‌های در دسترس ساخته می‌شود. برای تحلیل عمیق‌تر، متن کامل مقالات را هم بارگذاری کن.")
+        if st.button("تولید پوستر خلاصه", type="primary", key="make_poster"):
+            try:
+                gaps_for_poster = gaps if "gaps" in locals() else ["برای تعیین شکاف معتبر، متن کامل و مرور نظام‌مند لازم است."]
+                st.session_state["poster_pdf"] = make_poster_pdf(query, papers, coverage, method_counts, gaps_for_poster, limitations)
+                st.success("پوستر آماده شد.")
+            except Exception as e:
+                st.error(f"ساخت پوستر ناموفق بود: {e}")
+        if st.session_state.get("poster_pdf"):
+            st.download_button("دانلود پوستر پژوهشی PDF (A3)", st.session_state["poster_pdf"],
+                               "ResearchMateAI_poster.pdf", "application/pdf", key="download_poster")
+
 
 st.divider()
-st.caption("ResearchMate AI 0.2 | OpenAlex + TF-IDF + قواعد شناسایی روش‌ها | ابزار کمکی پژوهش، نه جایگزین داوری علمی")
+st.caption("ResearchMate AI 0.3 | OpenAlex + TF-IDF + قواعد شناسایی روش‌ها | ابزار کمکی پژوهش، نه جایگزین داوری علمی")
