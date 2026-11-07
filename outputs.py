@@ -204,7 +204,8 @@ def build_poster_pptx(bundle, out_path):
     add_box(.45,5.2,7.75,4.2,"مقایسه روش‌ها", "\n".join("• "+_as_text(x) for x in s.get("methods_comparison",[])) or "شواهد کافی استخراج نشد",14)
     add_box(8.35,5.2,7.75,4.2,"مقایسه نتایج و تناقض‌ها", "\n".join("• "+_as_text(x) for x in s.get("results_comparison",[])+s.get("conflicting_evidence",[])) or "نتایج قابل مقایسه کافی نیستند",14)
     add_box(.45,9.6,7.75,4.2,"شکاف‌های پژوهشی", "\n".join("• "+_as_text(x) for x in s.get("research_gaps",[])) or "شکاف مستند تعیین نشد",14)
-    add_box(8.35,9.6,7.75,4.2,"مسیرهای آینده", "\n".join("• "+_as_text(x) for x in s.get("future_directions",[])) or "پیشنهاد خاصی گزارش نشد",14)    refs=[]
+    add_box(8.35,9.6,7.75,4.2,"مسیرهای آینده", "\n".join("• "+_as_text(x) for x in s.get("future_directions",[])) or "پیشنهاد خاصی گزارش نشد",14)
+    refs=[]
     for i,p in enumerate(bundle["papers"][:10],1): refs.append(f"[{i}] {p.get('title','')} ({p.get('year','')}) DOI:{p.get('doi') or '-'}")
     add_box(.45,14.0,7.75,6.5,"منابع منتخب", "\n".join(refs),10)
     note="محدودیت‌ها: "+_as_text(s.get("limitations_of_review"))+"\nقدرت شواهد: "+_as_text(s.get("evidence_strength"))+"\nپوستر خودکار است؛ ادعاها را با منابع اصلی تطبیق دهید."
