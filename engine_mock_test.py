@@ -164,6 +164,7 @@ def test_europe_pmc_doi_resolver_requires_oa_flag():
         pmcid = _find_europe_pmc_pmcid("10.1234/steel.test")
     assert pmcid == "PMC222222"
     assert client.call_args.kwargs["params"]["format"] == "json"
+    assert client.call_args.kwargs["params"]["query"] == 'DOI:"10.1234/steel.test"'
     print("PASS DOI-based Europe PMC resolver requires explicit Open Access flag")
 
 
