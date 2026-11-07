@@ -54,10 +54,11 @@ def _get_json(url: str, params: dict | None = None, timeout: int = 25) -> dict:
 
 
 def search_openalex(query: str, year_from: int, year_to: int, limit: int = 30, api_key: str = "") -> list[dict]:
+    requested_limit = min(max(int(limit), 1), 50)
     params = {
         "search": query,
         "filter": f"open_access.is_oa:true,type:article|review,from_publication_date:{year_from}-01-01,to_publication_date:{year_to}-12-31",
-        "per-page": min(max(int(limit), 5), 50),
+        "per-page": requested_limit,
         "sort": "relevance_score:desc",
         "select": "id,doi,title,publication_year,publication_date,authorships,primary_location,best_oa_location,locations,open_access,cited_by_count,abstract_inverted_index,ids,type,has_content,content_urls"
     }
@@ -73,6 +74,8 @@ def search_openalex(query: str, year_from: int, year_to: int, limit: int = 30, a
         if not work.get("is_oa"):
             continue
         results.append(work)
+        if len(results) >= requested_limit:
+            break
     return results
 
 
