@@ -46,13 +46,21 @@ with st.sidebar:
     st.caption("این بازیاب مکمل، فقط وقتی Unpaywall وجود نسخه Open Access را تأیید کند، پیوند آن را امتحان می‌کند.")
     st.divider()
     st.subheader("تحلیل عمیق با مدل زبانی")
-    api_key = st.text_input("کلید API رایگان Gemini", value=_read_secret("GEMINI_API_KEY"), type="password", help="برای تحلیل عمیق مقاله‌به‌مقاله و سنتز بین‌مقاله‌ای لازم است. می‌توانی آن را در Streamlit App settings → Secrets با نام GEMINI_API_KEY ذخیره کنی؛ هرگز کلید را در GitHub یا کد قرار نده.")
-    model = st.selectbox("مدل", ["gemini-3.8-flash", "gemini-3.7-flash", "gemini-3.5-flash-lite"], index=0)
-    consent = st.checkbox("رضایت می‌دهم متن مقاله‌های آزاد و فراداده آن‌ها برای تحلیل به Google Gemini ارسال شود. از شرایط استفاده و حریم خصوصی پلن رایگان آگاه هستم.", value=False)
+    provider = st.selectbox("ارائه‌دهنده هوش مصنوعی", ["gemini", "groq", "openrouter", "mistral"], format_func=lambda x: {"gemini":"Google Gemini","groq":"Groq","openrouter":"OpenRouter","mistral":"Mistral"}[x])
+    provider_settings = {
+        "gemini": ("GEMINI_API_KEY", ["gemini-2.5-flash", "gemini-2.5-flash-lite"]),
+        "groq": ("GROQ_API_KEY", ["openai/gpt-oss-20b", "openai/gpt-oss-120b"]),
+        "openrouter": ("OPENROUTER_API_KEY", ["openrouter/free"]),
+        "mistral": ("MISTRAL_API_KEY", ["mistral-small-latest"]),
+    }
+    secret_name, model_options = provider_settings[provider]
+    api_key = st.text_input(f"کلید API رایگان {provider}", value=_read_secret(secret_name), type="password", help=f"کلید را فقط در Streamlit Secrets با نام {secret_name} ذخیره کن؛ هرگز آن را در GitHub یا کد قرار نده.")
+    model = st.selectbox("مدل", model_options)
+    consent = st.checkbox("رضایت می‌دهم متن مقاله‌های دسترسی‌آزاد و فراداده آن‌ها برای تحلیل به ارائه‌دهنده انتخاب‌شده ارسال شود. سیاست حریم خصوصی سرویس را بررسی کرده‌ام.", value=False)
     if not api_key.strip():
-        st.warning("کلید Gemini وارد نشده است؛ اجرا در حالت استخراج ساختاری خواهد بود و تحلیل عمیق انجام نمی‌شود.")
+        st.warning(f"کلید {provider} وارد نشده است؛ اجرا در حالت استخراج ساختاری خواهد بود و تحلیل عمیق انجام نمی‌شود.")
     elif not consent:
-        st.info("کلید موجود است، اما تا زمانی که رضایت ارسال متن مقاله به Gemini را فعال نکنی، تحلیل مدل‌محور اجرا نمی‌شود.")
+        st.info("کلید موجود است، اما تا زمانی که رضایت ارسال متن مقاله به ارائه‌دهنده انتخاب‌شده را فعال نکنی، تحلیل مدل‌محور اجرا نمی‌شود.")
     else:
         st.caption("کلید وارد شده و رضایت فعال است؛ پس از اجرا، وضعیت واقعی فراخوانی مدل در گزارش نمایش داده می‌شود.")
     run_btn = st.button("اجرای پژوهش کامل", type="primary", use_container_width=True)
@@ -72,7 +80,7 @@ if run_btn:
             with st.spinner("در حال جست‌وجو، دریافت متن کامل و تحلیل شواهد..."):
                 bundle = run_research(topic.strip(), int(year_from), int(year_to), int(max_papers),
                                       api_key=api_key.strip(), model=model, openalex_api_key=openalex_api_key.strip(), consent_to_send=consent,
-                                      progress=update_progress, unpaywall_email=unpaywall_email.strip())
+                                      progress=update_progress, unpaywall_email=unpaywall_email.strip(), provider=provider)
             # Final UI-side eligibility and hard-cap guard. This also protects the app
             # if a deployment temporarily serves an older cached engine module.
             aligned = [
@@ -97,7 +105,7 @@ if run_btn:
                 if api_key.strip() and consent:
                     try:
                         bundle["synthesis"] = synthesize_with_llm(
-                            topic.strip(), bundle["papers"], bundle["analyses"], api_key.strip(), model
+                            topic.strip(), bundle["papers"], bundle["analyses"], api_key.strip(), model, provider=provider
                         )
                         bundle["llm_enabled"] = True
                     except Exception as llm_exc:
@@ -144,9 +152,9 @@ else:
     else:
         llm_error = synthesis.get("llm_error")
         if llm_error:
-            st.error(f"تحلیل Gemini اجرا نشد: {llm_error}")
+            st.error(f"تحلیل مدل زبانی اجرا نشد: {llm_error}")
         elif not api_key.strip():
-            st.warning("تحلیل عمیق اجرا نشده است، چون کلید Gemini ارائه نشده. جست‌وجوی OA و استخراج اولیه مستقل از Gemini انجام شده‌اند.")
+            st.warning("تحلیل عمیق اجرا نشده است، چون کلید ارائه‌دهنده انتخاب‌شده ارائه نشده. جست‌وجوی OA و استخراج اولیه مستقل از Gemini انجام شده‌اند.")
         elif not consent:
             st.warning("تحلیل عمیق اجرا نشده است، چون رضایت ارسال متن مقاله به Gemini فعال نشده است.")
         else:
