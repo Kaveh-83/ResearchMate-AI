@@ -1,6 +1,6 @@
 """Deterministic no-network tests for the ResearchMate research pipeline."""
 from unittest.mock import patch
-from research_engine import run_research, rule_based_analysis, normalize_work, select_analysis_text
+from research_engine import run_research, rule_based_analysis, normalize_work, select_analysis_text, search_openalex, analyze_one_with_llm
 
 PAPERS = [
     {"id":"https://openalex.org/W101","title":"Random forest prediction of BOF endpoint temperature","year":2024,"doi":"10.5555/a","authors":["A Author"],"authors_text":"A Author","journal":"Steel Journal","citations":8,"oa_status":"gold","oa_url":"https://oa.example/a.pdf","abstract":"This study used random forest to predict BOF endpoint temperature. Results showed RMSE 8.5 °C using 1200 heats. Limitations include plant-specific data.","is_oa":True},
@@ -40,5 +40,59 @@ def test_text_selection_and_normalization():
     assert norm["abstract"]=="making steel" and norm["is_oa"]
     print("PASS page-aware text selection, table context, OpenAlex abstract reconstruction")
 
+def test_openalex_search_is_open_access_only():
+    oa_work = {
+        "id": "https://openalex.org/W201", "title": "Open access steel paper",
+        "publication_year": 2024, "open_access": {"is_oa": True, "oa_status": "gold", "oa_url": "https://repo.example/oa"},
+        "best_oa_location": {"is_oa": True, "pdf_url": "https://repo.example/oa.pdf", "landing_page_url": "https://repo.example/oa"},
+        "locations": [
+            {"is_oa": True, "pdf_url": "https://repo.example/oa.pdf"},
+            {"is_oa": False, "pdf_url": "https://publisher.example/paywalled.pdf"}
+        ],
+        "primary_location": {"is_oa": False, "pdf_url": "https://publisher.example/paywalled.pdf"}
+    }
+    closed_work = {
+        "id": "https://openalex.org/W202", "title": "Closed access steel paper",
+        "publication_year": 2024, "open_access": {"is_oa": False, "oa_status": "closed"},
+        "best_oa_location": None, "locations": [],
+    }
+    with patch("research_engine._get_json", return_value={"results": [oa_work, closed_work]}) as api:
+        found = search_openalex("steel", 2020, 2026, 10)
+    used_filter = api.call_args.kwargs["params"]["filter"]
+    assert "open_access.is_oa:true" in used_filter
+    assert "type:article|review" in used_filter
+    assert len(found) == 1 and found[0]["id"].endswith("W201")
+    assert found[0]["pdf_urls"] == ["https://repo.example/oa.pdf"]
+    print("PASS OpenAlex OA-only filter and closed-location URL exclusion")
+
+
+def test_model_quotes_are_verified_against_source():
+    paper = {"id": "W301", "title": "Steel strength study", "year": 2024, "doi": "10.5555/test"}
+    doc = {
+        "status": "full_text", "text": "The tensile strength was 420 MPa.",
+        "pages": [{"page": 2, "text": "The tensile strength was 420 MPa."}],
+        "tables": []
+    }
+    model_result = {
+        "evidence_quotes": [
+            {"claim": "strength", "quote": "The tensile strength was 420 MPa.", "page": 2},
+            {"claim": "fabricated", "quote": "The elongation was 90 percent.", "page": 9}
+        ],
+        "materials": [], "alloy_composition": [], "methods": [], "equipment_instrumentation": [],
+        "process_conditions": [], "input_variables": [], "output_variables": [], "measured_properties": [],
+        "metrics": [], "baseline_comparators": [], "validation_strategy": [], "uncertainty_statistics": [],
+        "quantitative_findings": [], "findings": [], "risk_of_bias": [], "reproducibility": [],
+        "industrial_applicability": [], "limitations": [], "future_work": []
+    }
+    with patch("research_engine.gemini_generate", return_value=__import__("json").dumps(model_result)):
+        result = analyze_one_with_llm(paper, doc, "fake-key", "gemini-3.8-flash")
+    assert len(result["evidence_quotes"]) == 1
+    assert result["evidence_quotes"][0]["quote_verified"] is True
+    assert result["evidence_quotes"][0]["page_verified"] is True
+    assert result["unverified_quotes_rejected"] == 1
+    print("PASS model quotations and page numbers are checked against source text")
+
+
 if __name__=="__main__":
     test_fallback_pipeline(); test_llm_pipeline(); test_text_selection_and_normalization()
+    test_openalex_search_is_open_access_only(); test_model_quotes_are_verified_against_source()
