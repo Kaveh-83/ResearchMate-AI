@@ -1,6 +1,6 @@
 """Deterministic no-network tests for the ResearchMate research pipeline."""
 from unittest.mock import patch
-from research_engine import run_research, rule_based_analysis, normalize_work, select_analysis_text, search_openalex, analyze_one_with_llm, _unpaywall_oa_urls
+from research_engine import run_research, rule_based_analysis, normalize_work, select_analysis_text, search_openalex, analyze_one_with_llm, _unpaywall_oa_urls, _find_europe_pmc_pmcid
 
 PAPERS = [
     {"id":"https://openalex.org/W101","title":"Random forest prediction of BOF endpoint temperature","year":2024,"type":"article","is_oa":True,"doi":"10.5555/a","authors":["A Author"],"authors_text":"A Author","journal":"Steel Journal","citations":8,"oa_status":"gold","oa_url":"https://oa.example/a.pdf","abstract":"This study used random forest to predict BOF endpoint temperature. Results showed RMSE 8.5 °C using 1200 heats. Limitations include plant-specific data.","is_oa":True},
@@ -151,6 +151,22 @@ def test_run_research_hard_cap_and_oa_boundary():
     print("PASS final pipeline OA/type guard and hard maximum article count")
 
 
+def test_europe_pmc_doi_resolver_requires_oa_flag():
+    class FakeResponse:
+        def raise_for_status(self):
+            return None
+        def json(self):
+            return {"resultList": {"result": [
+                {"pmcid": "PMC111111", "isOpenAccess": "N"},
+                {"pmcid": "PMC222222", "isOpenAccess": "Y"}
+            ]}}
+    with patch("research_engine.requests.get", return_value=FakeResponse()) as client:
+        pmcid = _find_europe_pmc_pmcid("10.1234/steel.test")
+    assert pmcid == "PMC222222"
+    assert client.call_args.kwargs["params"]["format"] == "json"
+    print("PASS DOI-based Europe PMC resolver requires explicit Open Access flag")
+
+
 if __name__=="__main__":
     test_fallback_pipeline(); test_llm_pipeline(); test_text_selection_and_normalization()
-    test_openalex_search_is_open_access_only(); test_model_quotes_are_verified_against_source(); test_unpaywall_resolver_requires_oa_confirmation(); test_run_research_hard_cap_and_oa_boundary()
+    test_openalex_search_is_open_access_only(); test_model_quotes_are_verified_against_source(); test_unpaywall_resolver_requires_oa_confirmation(); test_run_research_hard_cap_and_oa_boundary(); test_europe_pmc_doi_resolver_requires_oa_flag()
