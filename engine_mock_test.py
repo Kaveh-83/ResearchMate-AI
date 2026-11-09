@@ -152,7 +152,7 @@ def test_run_research_hard_cap_and_oa_boundary():
     print("PASS final pipeline OA/type guard and hard maximum article count")
 
 
-def test_europe_pmc_doi_resolver_requires_oa_flag(); test_openalex_rate_limit_retry_and_guidance():
+def test_europe_pmc_doi_resolver_requires_oa_flag():
     class FakeResponse:
         def raise_for_status(self):
             return None
@@ -209,4 +209,4 @@ def test_openalex_rate_limit_retry_and_guidance():
 
 if __name__=="__main__":
     test_fallback_pipeline(); test_llm_pipeline(); test_text_selection_and_normalization()
-    test_openalex_search_is_open_access_only(); test_model_quotes_are_verified_against_source(); test_unpaywall_resolver_requires_oa_confirmation(); test_run_research_hard_cap_and_oa_boundary(); test_europe_pmc_doi_resolver_requires_oa_flag()
+    test_openalex_search_is_open_access_only(); test_model_quotes_are_verified_against_source(); test_unpaywall_resolver_requires_oa_confirmation(); test_run_research_hard_cap_and_oa_boundary(); test_europe_pmc_doi_resolver_requires_oa_flag(); test_openalex_rate_limit_retry_and_guidance()
