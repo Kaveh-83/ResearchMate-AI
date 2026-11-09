@@ -5,7 +5,6 @@ import io
 import json
 import re
 import zipfile
-from datetime import datetime, timezone
 from typing import Any
 
 import pandas as pd
@@ -92,7 +91,8 @@ def _rows(bundle: dict[str, Any]) -> tuple[list[dict], list[dict], list[dict], l
 
 def build_non_ai_exports(bundle: dict[str, Any], include: set[str] | None = None) -> dict[str, bytes]:
     """Create transparent data exports; no semantic synthesis or LLM is performed."""
-    include = include or {"metadata", "signals", "evidence", "tables", "text", "bibtex", "json"}
+    if include is None:
+        include = {"metadata", "signals", "evidence", "tables", "text", "bibtex", "json"}
     metadata, signals, evidence, tables = _rows(bundle)
     files: dict[str, bytes] = {}
     members: dict[str, bytes] = {}
@@ -144,17 +144,18 @@ def build_non_ai_exports(bundle: dict[str, Any], include: set[str] | None = None
     ]
     add("run_summary.txt", ("\n".join(summary) + "\n").encode("utf-8"))
 
+    # Keep Excel sheets aligned with the user's selected export modules.
+    workbook = io.BytesIO()
+    with pd.ExcelWriter(workbook, engine="openpyxl") as writer:
+        pd.DataFrame(metadata if "metadata" in include else []).to_excel(writer, sheet_name="Metadata", index=False)
+        pd.DataFrame(signals if "signals" in include else []).to_excel(writer, sheet_name="Rule_Candidates", index=False)
+        pd.DataFrame(evidence if "evidence" in include else []).to_excel(writer, sheet_name="Evidence_Excerpts", index=False)
+        pd.DataFrame(tables if "tables" in include else []).to_excel(writer, sheet_name="Extracted_Tables", index=False)
+    files["researchmate_evidence_workbook.xlsx"] = workbook.getvalue()
+
     output = io.BytesIO()
     with zipfile.ZipFile(output, "w", zipfile.ZIP_DEFLATED) as archive:
         for name, data in members.items():
             archive.writestr(name, data)
     files["researchmate_deterministic_package.zip"] = output.getvalue()
-
-    workbook = io.BytesIO()
-    with pd.ExcelWriter(workbook, engine="openpyxl") as writer:
-        pd.DataFrame(metadata).to_excel(writer, sheet_name="Metadata", index=False)
-        pd.DataFrame(signals).to_excel(writer, sheet_name="Rule_Candidates", index=False)
-        pd.DataFrame(evidence).to_excel(writer, sheet_name="Evidence_Excerpts", index=False)
-        pd.DataFrame(tables).to_excel(writer, sheet_name="Extracted_Tables", index=False)
-    files["researchmate_evidence_workbook.xlsx"] = workbook.getvalue()
     return files
