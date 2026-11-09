@@ -33,7 +33,7 @@ with st.expander("این بخش دقیقاً چه کارهایی را انجام
     - شناسایی واژه‌محور روش‌ها و مواد، الگوهای عددی/واحدها، و پاراگراف‌های حاوی نشانه‌های نتیجه یا محدودیت.
     - ساخت CSV، Excel، JSON، BibTeX، متن استخراج‌شده و بسته ZIP.
     
-    **این صفحه انجام نمی‌دهد:** تفسیر معنایی، تشخیص مکانیسم، داوری علمی، تعیین شکاف پژوهشی، ارزیابی قطعی کیفیت مطالعه یا نگارش مقاله قابل انتشار. خروجی واژه‌محور فقط «سرنخ/نامزد استخراج» است و باید با منبع اصلی تطبیق داده شود.
+    **این صفحه انجام نمی‌دهد:** تفسیر معنایی، توضیح مکانیسم، تشخیص شکاف پژوهشی، داوری محتوایی، ارزیابی قطعی کیفیت مطالعه یا نگارش مقاله قابل انتشار. خروجی واژه‌محور فقط «سرنخ/نامزد استخراج» است و باید با منبع اصلی تطبیق داده شود.
     """)
 
 def _secret(name: str) -> str:
@@ -175,12 +175,15 @@ if bundle:
         if e2.checkbox("منابع BibTeX", value=True): include.add("bibtex")
         if e3.checkbox("داده ساختاریافته JSON", value=True): include.add("json")
         if st.button("ساخت فایل‌های انتخاب‌شده", type="primary", use_container_width=True):
-            try:
-                with st.spinner("در حال ساخت CSV، Excel، BibTeX، JSON و بسته ZIP..."):
-                    st.session_state["non_ai_exports"] = build_non_ai_exports(bundle, include)
-                st.success("خروجی‌ها با موفقیت ساخته شدند.")
-            except Exception as exc:
-                st.error(f"ساخت خروجی ناموفق بود: {exc}")
+            if not include:
+                st.warning("حداقل یک نوع داده را برای خروجی انتخاب کن.")
+            else:
+                try:
+                    with st.spinner("در حال ساخت CSV، Excel، BibTeX، JSON و بسته ZIP..."):
+                        st.session_state["non_ai_exports"] = build_non_ai_exports(bundle, include)
+                    st.success("خروجی‌ها با موفقیت ساخته شدند.")
+                except Exception as exc:
+                    st.error(f"ساخت خروجی ناموفق بود: {exc}")
         export_files = st.session_state.get("non_ai_exports", {})
         if export_files:
             st.markdown("**دانلود فایل‌ها**")
