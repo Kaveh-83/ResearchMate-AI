@@ -1,6 +1,6 @@
 # ResearchMate AI 2.0 — deterministic research tools + prompt studio
 
-ResearchMate is split into two clearly separated workflows. The new workflow does not call any language-model API. It combines deterministic scholarly retrieval and extraction with a configurable prompt generator for analysis tasks that require an external AI model chosen by the user.
+ResearchMate separates scientific workflows into two independent tracks. The application does not call a language-model API. It combines deterministic scholarly retrieval and extraction with a configurable prompt generator for AI-dependent analysis tasks performed by an external model selected by the user.
 
 ## Workflow A — functions that run without an AI model
 
@@ -19,7 +19,7 @@ Open **1_ابزارهای_بدون_AI** from the Streamlit pages menu.
 
 Open **2_سازنده_پرامپت** from the Streamlit pages menu.
 
-The user selects the task, field, output report/article type, output language (Persian or English), sources, citation style, and desired functions from a categorized library. ResearchMate builds an English prompt that:
+The user selects the task, field, academic level, report/article type, output language (Persian or English), sources, citation style, desired functions, and review settings. ResearchMate builds an English prompt that:
 
 1. inventories every accessible source and classifies its evidence-access level;
 2. maps sections, subsections, figures, tables, equations, appendices, and identified topics to a coverage matrix;
@@ -29,13 +29,13 @@ The user selects the task, field, output report/article type, output language (P
 6. conducts a separate referee-style quality gate and reports PASS, PASS WITH LIMITATIONS, or NOT APPROVED;
 7. includes unresolved access and evidence limitations instead of fabricating information.
 
-The prompt generator itself is deterministic and does not use an LLM API. The generated prompt must be pasted into an AI service selected by the user. To inspect paywalled or inaccessible links, the user must provide a legally obtained full-text file and use a target model that supports file upload and/or web access. A prompt cannot grant a model technical access to a link.
+The prompt generator itself is deterministic and does not use an LLM API. The generated prompt must be pasted into an AI service selected by the user. To inspect inaccessible links, the user must provide a legally obtained full-text file and use a target model that supports file upload and/or web access. A prompt cannot grant a model technical access to a link.
 
 The reviewer role is an AI-assisted internal quality check, not an independent human peer review or a guarantee of correctness or journal acceptance. Hidden chain-of-thought is not requested; the output should show concise evidence-based decisions and a revision log.
 
-## Legacy integrated workflow
+## Application entry point
 
-The original single-page app remains available as the root page for backward compatibility. It includes the former optional Gemini/API-based analysis pathway. The two new pages above are the recommended paths for version 2.0.
+The root page is a navigation-only landing page for the two workflows. The former integrated Gemini/API workflow is not exposed in the primary user interface.
 
 ## Run locally
 
