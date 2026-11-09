@@ -5,8 +5,8 @@ import pandas as pd
 from research_engine import run_research, fallback_synthesis, synthesize_with_llm
 from outputs import package_outputs
 
-APP_BUILD_ID = "2026-11-07.3"
-st.set_page_config(page_title="ResearchMate AI | Scientific Research Agent", page_icon="🔬", layout="wide")
+APP_BUILD_ID = "2026-11-09.2"
+st.set_page_config(page_title="ResearchMate AI | Scientific Research Workspace", page_icon="🔬", layout="wide")
 st.markdown("""
 <style>
 html, body, [data-testid="stAppViewContainer"] { direction: rtl; }
@@ -19,8 +19,18 @@ html, body, [data-testid="stAppViewContainer"] { direction: rtl; }
 """, unsafe_allow_html=True)
 
 st.title("🔬 ResearchMate AI")
-st.caption(f"نسخه ۱٫۱٫۱ | جست‌وجوی Open Access و تحلیل شواهد علمی | Build {APP_BUILD_ID}")
-st.info("جست‌وجو فقط در میان مقاله‌ها و مقاله‌مرورهای دارای برچسب دسترسی‌آزاد (Open Access) انجام می‌شود. برنامه سپس نسخه‌های قانونی و آزاد متن کامل را دریافت می‌کند. آزاد بودن رکورد لزوماً به معنی موفقیت دانلود/استخراج متن نیست؛ موارد ناموفق با سطح شواهد چکیده یا فراداده باقی می‌مانند.")
+st.caption(f"نسخه ۲٫۰ | دو مسیر پژوهشی مستقل | Build {APP_BUILD_ID}")
+st.markdown("### انتخاب مسیر پژوهش")
+nav_left, nav_right = st.columns(2)
+with nav_left:
+    st.page_link("pages/1_ابزارهای_بدون_AI.py", label="🔬 ابزارهای بدون هوش مصنوعی", use_container_width=True)
+    st.caption("جست‌وجوی Open Access، بازیابی قانونی، استخراج متن و جدول، فراداده و فایل‌های داده — بدون API مدل زبانی.")
+with nav_right:
+    st.page_link("pages/2_سازنده_پرامپت.py", label="✍️ سازنده پرامپت تخصصی", use_container_width=True)
+    st.caption("انتخاب امکانات و نوع گزارش؛ تولید پرامپت انگلیسی با زبان خروجی فارسی یا انگلیسی و چرخه نقد، اصلاح و داوری.")
+st.info("برای تحلیل معنایی، تفسیر علمی، شناسایی شکاف پژوهشی و داوری تخصصی از سازنده پرامپت استفاده کن و پرامپت را به مدل دلخواهت بده. مسیر قدیمی Gemini در منوی کناری فقط برای سازگاری نگه داشته شده است.")
+st.divider()
+st.info("جست‌وجو در این جریان قدیمی فقط در میان مقاله‌ها و مقاله‌مرورهای دارای برچسب دسترسی‌آزاد (Open Access) انجام می‌شود. نسخه‌های قانونی متن کامل دریافت می‌شوند؛ اما آزاد بودن رکورد لزوماً به معنی موفقیت دانلود یا استخراج نیست.")
 
 def _read_secret(name: str) -> str:
     try:
@@ -39,8 +49,8 @@ with st.sidebar:
     max_papers = st.slider("حداکثر تعداد مقاله برای این اجرا", min_value=5, max_value=15, value=8)
     st.divider()
     st.subheader("دریافت متن کامل آزاد از OpenAlex")
-    openalex_api_key = st.text_input("کلید رایگان OpenAlex (اختیاری)", value=_read_secret("OPENALEX_API_KEY"), type="password", help="برای افزایش سهمیه API و دسترسی به فایل‌های ذخیره‌شده OpenAlex. می‌توانی آن را در Streamlit App settings → Secrets با نام OPENALEX_API_KEY ذخیره کنی.")
-    st.caption("جست‌وجوی مقاله‌های Open Access بدون این کلید هم انجام می‌شود؛ کلید فقط سهمیه و مسیرهای بازیابی متن ذخیره‌شده را بهبود می‌دهد.")
+    openalex_api_key = st.text_input("کلید رایگان OpenAlex (توصیه‌شده)", value=_read_secret("OPENALEX_API_KEY"), type="password", help="برای افزایش سهمیه API و دسترسی به فایل‌های ذخیره‌شده OpenAlex. می‌توانی آن را در Streamlit App settings → Secrets با نام OPENALEX_API_KEY ذخیره کنی.")
+    st.caption("برای استفاده پایدار، کلید رایگان توصیه می‌شود؛ سهمیه درخواست ناشناس بسیار محدودتر است. این کلید برای پایگاه مقالات است، نه مدل هوش مصنوعی.")
     unpaywall_email = st.text_input("ایمیل Unpaywall (اختیاری)", value=_read_secret("UNPAYWALL_EMAIL"), type="password",
                                     help="برای جست‌وجوی نسخه آزاد تکمیلی بر اساس DOI. فقط به API رسمی Unpaywall فرستاده می‌شود؛ می‌توانی آن را در Secrets با نام UNPAYWALL_EMAIL ذخیره کنی.")
     st.caption("این بازیاب مکمل، فقط وقتی Unpaywall وجود نسخه Open Access را تأیید کند، پیوند آن را امتحان می‌کند.")

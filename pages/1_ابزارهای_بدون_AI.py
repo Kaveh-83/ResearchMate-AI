@@ -32,7 +32,7 @@ with st.expander("این بخش دقیقاً چه کارهایی را انجام
     - استخراج متن PDF/XML/HTML، شماره صفحه در صورت وجود، و جدول‌های قابل استخراج.
     - شناسایی واژه‌محور روش‌ها و مواد، الگوهای عددی/واحدها، و پاراگراف‌های حاوی نشانه‌های نتیجه یا محدودیت.
     - ساخت CSV، Excel، JSON، BibTeX، متن استخراج‌شده و بسته ZIP.
-    
+
     **این صفحه انجام نمی‌دهد:** تفسیر معنایی، توضیح مکانیسم، تشخیص شکاف پژوهشی، داوری محتوایی، ارزیابی قطعی کیفیت مطالعه یا نگارش مقاله قابل انتشار. خروجی واژه‌محور فقط «سرنخ/نامزد استخراج» است و باید با منبع اصلی تطبیق داده شود.
     """)
 
@@ -56,8 +56,12 @@ with st.form("deterministic_search_form"):
     year_to = c2.number_input("تا سال انتشار", min_value=1900, max_value=this_year, value=this_year)
     max_papers = c3.slider("حداکثر مقاله", min_value=1, max_value=50, value=10)
     openalex_key = st.text_input(
-        "کلید OpenAlex (اختیاری)", value=_secret("OPENALEX_API_KEY"), type="password",
-        help="جست‌وجوی پایه بدون کلید هم قابل انجام است. کلید فقط سهمیه/دسترسی‌های تکمیلی OpenAlex را بهبود می‌دهد."
+        "کلید رایگان OpenAlex (توصیه‌شده)", value=_secret("OPENALEX_API_KEY"), type="password",
+        help="کلید API رایگان OpenAlex سهمیه روزانه را نسبت به درخواست ناشناس افزایش می‌دهد. بدون کلید هم می‌توانی امتحان کنی، اما 429 زودتر رخ می‌دهد. کلید فقط برای پایگاه مقالات است، نه هوش مصنوعی."
+    )
+    st.markdown(
+        "[ساخت حساب و دریافت کلید رایگان OpenAlex](https://openalex.org/settings/api) · "
+        "[توضیح سهمیه و خطاهای 429](https://help.openalex.org/api/authentication/)"
     )
     unpaywall_email = st.text_input(
         "ایمیل Unpaywall (اختیاری)", value=_secret("UNPAYWALL_EMAIL"), type="password",
@@ -93,7 +97,12 @@ if submit:
             progress.progress(1.0)
             status.success("بازیابی و استخراج قطعی پایان یافت. سطح دسترسی و کیفیت استخراج هر مقاله را بررسی کن.")
         except Exception as exc:
-            st.error(f"اجرای جست‌وجو ناموفق بود: {exc}")
+            message = str(exc)
+            st.error(f"اجرای جست‌وجو ناموفق بود: {message}")
+            if "HTTP 429" in message:
+                st.info("راهنما: کلید رایگان OpenAlex را از پیوند بالای فرم بگیر، پس از تأیید ایمیل آن را در فیلد کلید وارد کن. این کلید رایگان است و با API هوش مصنوعی ارتباطی ندارد.")
+            elif "HTTP 403" in message and "key_not_activated" in message:
+                st.info("کلید OpenAlex هنوز فعال نشده است؛ پیوند تأیید ارسال‌شده به ایمیل صاحب کلید را باز کن.")
 
 bundle = st.session_state.get("non_ai_bundle")
 if bundle:

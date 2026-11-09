@@ -1,6 +1,7 @@
 """Deterministic no-network tests for the ResearchMate research pipeline."""
 from unittest.mock import patch
-from research_engine import run_research, rule_based_analysis, normalize_work, select_analysis_text, search_openalex, analyze_one_with_llm, _unpaywall_oa_urls, _find_europe_pmc_pmcid
+import requests
+from research_engine import _get_json, run_research, rule_based_analysis, normalize_work, select_analysis_text, search_openalex, analyze_one_with_llm, _unpaywall_oa_urls, _find_europe_pmc_pmcid
 
 PAPERS = [
     {"id":"https://openalex.org/W101","title":"Random forest prediction of BOF endpoint temperature","year":2024,"type":"article","is_oa":True,"doi":"10.5555/a","authors":["A Author"],"authors_text":"A Author","journal":"Steel Journal","citations":8,"oa_status":"gold","oa_url":"https://oa.example/a.pdf","abstract":"This study used random forest to predict BOF endpoint temperature. Results showed RMSE 8.5 °C using 1200 heats. Limitations include plant-specific data.","is_oa":True},
@@ -168,6 +169,44 @@ def test_europe_pmc_doi_resolver_requires_oa_flag():
     print("PASS DOI-based Europe PMC resolver requires explicit Open Access flag")
 
 
+
+def test_openalex_rate_limit_retry_and_guidance():
+    class FakeResponse:
+        def __init__(self, status_code, payload, headers=None):
+            self.status_code = status_code
+            self._payload = payload
+            self.headers = headers or {}
+        def raise_for_status(self):
+            if self.status_code >= 400:
+                raise requests.HTTPError(response=self)
+        def json(self):
+            return self._payload
+
+    # A short server-directed Retry-After is honored once, then the query succeeds.
+    responses = [
+        FakeResponse(429, {"message": "Rate limit exceeded"}, {"Retry-After": "0"}),
+        FakeResponse(200, {"results": []})
+    ]
+    with patch("research_engine.requests.get", side_effect=responses) as client, patch("research_engine.time.sleep") as sleep:
+        payload = _get_json("https://api.openalex.org/works", params={"search": "steel"})
+    assert payload == {"results": []}
+    assert client.call_count == 2
+    sleep.assert_called_once()
+
+    # An anonymous-budget 429 gives a concrete free-key instruction instead of generic API advice.
+    denied = FakeResponse(429, {"message": "Daily budget exceeded"})
+    with patch("research_engine.requests.get", return_value=denied):
+        try:
+            _get_json("https://api.openalex.org/works", params={})
+        except RuntimeError as exc:
+            message = str(exc)
+        else:
+            raise AssertionError("Expected OpenAlex 429 to be converted to an actionable error.")
+    assert "HTTP 429" in message
+    assert "کلید رایگان OpenAlex" in message
+    print("PASS OpenAlex 429 retry-after handling and free-key guidance")
+
+
 if __name__=="__main__":
     test_fallback_pipeline(); test_llm_pipeline(); test_text_selection_and_normalization()
-    test_openalex_search_is_open_access_only(); test_model_quotes_are_verified_against_source(); test_unpaywall_resolver_requires_oa_confirmation(); test_run_research_hard_cap_and_oa_boundary(); test_europe_pmc_doi_resolver_requires_oa_flag()
+    test_openalex_search_is_open_access_only(); test_model_quotes_are_verified_against_source(); test_unpaywall_resolver_requires_oa_confirmation(); test_run_research_hard_cap_and_oa_boundary(); test_europe_pmc_doi_resolver_requires_oa_flag(); test_openalex_rate_limit_retry_and_guidance()

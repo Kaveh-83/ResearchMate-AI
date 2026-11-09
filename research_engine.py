@@ -40,17 +40,69 @@ def reconstruct_abstract(inverted: dict | None) -> str:
 
 
 def _get_json(url: str, params: dict | None = None, timeout: int = 25) -> dict:
-    try:
-        response = requests.get(url, params=params, timeout=timeout, headers={"User-Agent": USER_AGENT})
-        response.raise_for_status()
-        return response.json()
-    except requests.RequestException as exc:
-        # Avoid echoing request URLs: OpenAlex API keys are supplied as query parameters.
-        status = getattr(getattr(exc, "response", None), "status_code", None)
-        detail = f"HTTP {status}" if status else "خطای شبکه یا timeout"
-        raise RuntimeError(f"ارتباط با OpenAlex ناموفق بود ({detail}). اتصال اینترنت و اعتبار کلید API را بررسی کن.") from None
-    except ValueError:
-        raise RuntimeError("پاسخ OpenAlex در قالب JSON معتبر نبود.") from None
+    """GET JSON with bounded transient retries and actionable OpenAlex 429 guidance."""
+    max_attempts = 3
+    for attempt in range(max_attempts):
+        try:
+            response = requests.get(
+                url, params=params, timeout=timeout,
+                headers={"User-Agent": USER_AGENT}
+            )
+            status = getattr(response, "status_code", None)
+
+            if status == 429:
+                retry_after = response.headers.get("Retry-After")
+                try:
+                    wait_seconds = float(retry_after) if retry_after is not None else None
+                except (TypeError, ValueError):
+                    wait_seconds = None
+
+                # Retry only an explicit short server-directed delay. A daily-budget
+                # exhaustion is not fixed by blind rapid retries.
+                if attempt < max_attempts - 1 and wait_seconds is not None and 0 <= wait_seconds <= 5:
+                    time.sleep(max(0.25, wait_seconds))
+                    continue
+
+                has_key = bool((params or {}).get("api_key"))
+                try:
+                    body = response.json()
+                except (ValueError, AttributeError):
+                    body = {}
+                provider_message = clean_text(body.get("message") or body.get("error") or "")
+                if has_key:
+                    guidance = (
+                        "کلید OpenAlex ارسال شده است؛ ممکن است سهمیه روزانه تمام شده باشد یا محدودیت سرعت رخ داده باشد. "
+                        "در صورت وجود Retry-After همان مدت صبر کن؛ سهمیه رایگان روزانه در نیمه‌شب UTC بازنشانی می‌شود."
+                    )
+                else:
+                    guidance = (
+                        "برای استفاده پایدار، یک کلید رایگان OpenAlex بساز و در همین صفحه وارد کن؛ "
+                        "این کلید متعلق به پایگاه مقالات است و کلید هوش مصنوعی نیست. "
+                        "بدون کلید، سهمیه ناشناس بسیار محدودتر است."
+                    )
+                extra = f" پیام سرویس: {provider_message}" if provider_message else ""
+                raise RuntimeError(
+                    f"OpenAlex محدودیت درخواست یا سهمیه را اعمال کرد (HTTP 429). {guidance}{extra}"
+                )
+
+            if status in {500, 502, 503, 504} and attempt < max_attempts - 1:
+                time.sleep(1.5 * (2 ** attempt))
+                continue
+
+            response.raise_for_status()
+            return response.json()
+
+        except requests.RequestException as exc:
+            # Avoid echoing request URLs: OpenAlex API keys are supplied as query parameters.
+            status = getattr(getattr(exc, "response", None), "status_code", None)
+            detail = f"HTTP {status}" if status else "خطای شبکه یا timeout"
+            raise RuntimeError(f"ارتباط با OpenAlex ناموفق بود ({detail}). اتصال اینترنت را بررسی کن.") from None
+        except RuntimeError:
+            raise
+        except ValueError:
+            raise RuntimeError("پاسخ OpenAlex در قالب JSON معتبر نبود.") from None
+
+    raise RuntimeError("OpenAlex پس از چند تلاش محدود پاسخ نداد. کمی بعد دوباره تلاش کن.")
 
 
 def search_openalex(query: str, year_from: int, year_to: int, limit: int = 30, api_key: str = "") -> list[dict]:
