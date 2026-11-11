@@ -183,7 +183,7 @@ private fun LiteratureSearchScreen() {
             if (apiBaseUrl.isBlank()) {
                 "جست‌وجوی آنلاین پس از فعال‌شدن سرویس مرکزی در دسترس قرار می‌گیرد. نیازی به تنظیم سرور توسط کاربر نیست."
             } else {
-                "اتصال به سرویس پژوهشی مرکزی آماده است."
+                "آدرس سرویس پیکربندی شده است؛ وضعیت اتصال هنگام جست‌وجو بررسی می‌شود."
             },
             style = MaterialTheme.typography.bodySmall,
             color = MaterialTheme.colorScheme.onSurfaceVariant,
