@@ -6,6 +6,8 @@ This directory contains the native Android client. It is a Kotlin/Jetpack Compos
 
 The first navigation/home-screen scaffold is in place. Search, local persistence, prompt studio, document handling, and report exports are being migrated in phases. The current screen is a UI scaffold, not a feature-complete release.
 
+AGP 9.x provides built-in Kotlin support; the project applies only the Compose compiler plugin.
+
 ## Build
 
 The CI workflow installs JDK 17, Android SDK platform 37/build tools 36.0.0, Gradle 9.6.0, then runs:
