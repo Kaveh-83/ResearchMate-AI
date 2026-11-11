@@ -22,5 +22,5 @@ The debug APK is published as a short-lived GitHub Actions artifact after a succ
 
 - Application ID: `ai.researchmate.mobile`
 - Minimum Android: API 26
-- Compile SDK: API 36
+- Compile SDK: API 37
 - UI: Jetpack Compose + Material 3
