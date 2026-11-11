@@ -24,10 +24,11 @@ jobs:
           distribution: temurin
           java-version: "17"
 
-      - uses: android-actions/setup-android@v3
-
+      # GitHub-hosted Ubuntu runners already provide Android command-line tools.
+      # Avoid the setup-android action's legacy "tools" package installation.
       - name: Install Android SDK packages
         run: |
+          echo "ANDROID_HOME=$ANDROID_HOME"
           sdkmanager "platforms;android-37" "build-tools;36.0.0"
           yes | sdkmanager --licenses
 
