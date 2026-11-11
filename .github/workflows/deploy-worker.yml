@@ -1,0 +1,29 @@
+name: Deploy ResearchMate Worker
+
+on:
+  push:
+    branches:
+      - feature/android-native-platform
+    paths:
+      - "backend/edge-worker/**"
+      - ".github/workflows/deploy-worker.yml"
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  deploy:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v6
+
+      - name: Deploy Worker to Cloudflare
+        uses: cloudflare/wrangler-action@v4
+        with:
+          apiToken: ${{ secrets.CLOUDFLARE_API_TOKEN }}
+          accountId: ${{ secrets.CLOUDFLARE_ACCOUNT_ID }}
+          workingDirectory: backend/edge-worker
+          wranglerVersion: "4.45.0"
+          command: deploy
