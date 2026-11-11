@@ -152,7 +152,7 @@ private fun ResearchMateHome() {
                 item {
                     Spacer(modifier = Modifier.height(4.dp))
                     Text(
-                        text = "نسخه آزمایشی اولیه · 0.1.0",
+                        text = "نسخه آزمایشی اولیه · 0.2.0",
                         style = MaterialTheme.typography.labelSmall,
                         color = MaterialTheme.colorScheme.onSurfaceVariant,
                     )
