@@ -1,5 +1,10 @@
+export interface RateLimitBinding {
+  limit(options: { key: string }): Promise<{ success: boolean }>;
+}
+
 export interface Env {
   APP_ALLOWED_ORIGINS?: string;
+  SEARCH_RATE_LIMITER: RateLimitBinding;
 }
 
 const JSON_HEADERS = {
@@ -20,14 +25,14 @@ function corsHeaders(request: Request, env: Env): Record<string, string> {
     .split(",")
     .map((item) => item.trim())
     .filter(Boolean);
-  // Native Android clients generally send no Origin header. For browser-based
-  // diagnostics, only explicitly configured origins are reflected.
+  // Native Android clients generally send no Origin header. Browser clients
+  // are allowed only when their exact origin is configured.
   if (!origin) return {};
   if (allowed.includes("*") || allowed.includes(origin)) {
     return {
       "access-control-allow-origin": origin,
       "access-control-allow-methods": "GET, OPTIONS",
-      "access-control-allow-headers": "Content-Type, Authorization, X-OpenAlex-Key",
+      "access-control-allow-headers": "Content-Type, Authorization",
       "vary": "Origin",
     };
   }
@@ -35,11 +40,13 @@ function corsHeaders(request: Request, env: Env): Record<string, string> {
 }
 
 function errorResponse(request: Request, env: Env, message: string, status: number): Response {
-  return json({ error: { message, status } }, status, corsHeaders(request, env));
+  const extra = corsHeaders(request, env);
+  if (status === 429) extra["retry-after"] = "60";
+  return json({ error: { message, status } }, status, extra);
 }
 
 function validYear(value: string | null): number | null {
-  if (!value || !/^\d{4}$/.test(value)) return null;
+  if (!value || !/^\\d{4}$/.test(value)) return null;
   const year = Number(value);
   return year >= 1800 && year <= new Date().getUTCFullYear() + 1 ? year : null;
 }
@@ -49,6 +56,16 @@ async function searchLiterature(request: Request, env: Env): Promise<Response> {
   const query = (url.searchParams.get("q") ?? "").trim();
   if (query.length < 2 || query.length > 300) {
     return errorResponse(request, env, "q must contain 2–300 characters.", 400);
+  }
+
+  // Anonymous, per-IP abuse guard. Cloudflare's binding is approximate and
+  // location-local; it is a protective throttle, not user authentication.
+  const clientIp = request.headers.get("CF-Connecting-IP") ?? "unknown";
+  const { success } = await env.SEARCH_RATE_LIMITER.limit({
+    key: `${clientIp}:literature-search`,
+  });
+  if (!success) {
+    return errorResponse(request, env, "Search limit reached. Please wait one minute and try again.", 429);
   }
 
   const currentYear = new Date().getUTCFullYear();
@@ -79,19 +96,14 @@ async function searchLiterature(request: Request, env: Env): Promise<Response> {
   const cursor = url.searchParams.get("cursor");
   if (cursor && cursor.length <= 2048) upstream.searchParams.set("cursor", cursor);
 
-  // User-owned OpenAlex key is passed in a header, never in the app URL.
-  const key = request.headers.get("X-OpenAlex-Key");
-  const headers: Record<string, string> = {
-    "accept": "application/json",
-    "user-agent": "ResearchMateAI/1.0 (scholarly literature discovery)",
-  };
-  if (key && key.length <= 512) headers.authorization = `Bearer ${key}`;
-
   let upstreamResponse: Response;
   try {
     upstreamResponse = await fetch(upstream.toString(), {
       method: "GET",
-      headers,
+      headers: {
+        "accept": "application/json",
+        "user-agent": "ResearchMateAI/1.0 (scholarly literature discovery)",
+      },
       signal: AbortSignal.timeout(20000),
     });
   } catch {
@@ -100,10 +112,7 @@ async function searchLiterature(request: Request, env: Env): Promise<Response> {
 
   if (!upstreamResponse.ok) {
     if (upstreamResponse.status === 429) {
-      return errorResponse(request, env, "OpenAlex quota or rate limit reached. Wait or check your free API key quota.", 429);
-    }
-    if (upstreamResponse.status === 401 || upstreamResponse.status === 403) {
-      return errorResponse(request, env, "OpenAlex rejected the API key. Check the key and its activation status.", 502);
+      return errorResponse(request, env, "The literature provider rate limit was reached. Try again later.", 429);
     }
     return errorResponse(request, env, `OpenAlex returned HTTP ${upstreamResponse.status}.`, 502);
   }
