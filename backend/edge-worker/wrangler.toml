@@ -1,4 +1,4 @@
-name = "researchmate-api"
+name = "researchmate-ai"
 main = "src/index.ts"
 compatibility_date = "2026-10-01"
 
