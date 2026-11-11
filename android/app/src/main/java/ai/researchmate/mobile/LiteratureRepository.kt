@@ -44,9 +44,18 @@ object LiteratureRepository {
             val root = JSONObject(body)
 
             if (status !in 200..299) {
-                val message = root.optJSONObject("error")?.optString("message")
+                val upstreamMessage = root.optJSONObject("error")?.optString("message")
                     ?.takeIf { !it.isNullOrBlank() }
                     ?: "سرور با خطای HTTP $status پاسخ داد."
+                val message = when {
+                    upstreamMessage.contains("OpenAlex anonymous rate limit", ignoreCase = true) ->
+                        "سرویس جست‌وجو هنوز به کلید دسترسی OpenAlex متصل نشده است. مدیر برنامه باید تنظیمات سرور را تکمیل کند."
+                    upstreamMessage.contains("OpenAlex rate limit reached", ignoreCase = true) ->
+                        "سهمیه جست‌وجوی OpenAlex موقتاً محدود شده است. لطفاً کمی بعد دوباره تلاش کن."
+                    upstreamMessage.contains("Search limit reached", ignoreCase = true) ->
+                        "تعداد جست‌وجوها در یک دقیقه به سقف مجاز رسیده است. یک دقیقه بعد دوباره تلاش کن."
+                    else -> upstreamMessage
+                }
                 throw IllegalStateException(message)
             }
 
