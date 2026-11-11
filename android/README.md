@@ -1,26 +1,46 @@
 # Android application
 
-This directory contains the native Android client. It is a Kotlin/Jetpack Compose application and does not load the Streamlit website.
+This directory contains the native Android client. It is a Kotlin + Jetpack Compose application and does not load the Streamlit website.
 
-## Current status
+## Verified build status
 
-The first navigation/home-screen scaffold is in place. Search, local persistence, prompt studio, document handling, and report exports are being migrated in phases. The current screen is a UI scaffold, not a feature-complete release.
+- The debug APK was built successfully by GitHub Actions on 2026-11-11.
+- Application ID: `ai.researchmate.mobile`
+- Version: `0.1.0` (versionCode 1)
+- Minimum Android: API 26 (Android 8.0)
+- Compile/target SDK: API 36
+- UI: Jetpack Compose + Material 3, Persian-first RTL
+- Build command: `gradle assembleDebug --no-daemon`
 
-AGP 9.x provides built-in Kotlin support; the project applies only the Compose compiler plugin.
+The CI workflow publishes a short-lived debug APK artifact. It is an installable development build, not a signed Play Store release.
+
+## Implemented in this build
+
+- Native home, search, and projects navigation.
+- Persian RTL layout.
+- OpenAlex literature-search client and result cards.
+- Build-time API base URL configuration through `-PAPI_BASE_URL=https://your-service.example`.
+- Clear not-configured state when no API host is compiled into the build.
+
+## Not implemented yet
+
+- The shared API service is not deployed.
+- Search will not work in the distributed APK until a reachable API base URL is configured at build time.
+- Local Room database, PDF import/storage, full-text retrieval, PDF extraction/OCR, AI synthesis, research-gap analysis, and report export are not yet implemented.
+- The current Projects screen is a placeholder, not persistent storage.
 
 ## Build
 
-The CI workflow installs JDK 17, Android SDK platform 37/build tools 36.0.0, Gradle 9.6.0, then runs:
+From this directory:
 
 ```bash
 gradle assembleDebug --no-daemon
 ```
 
-The debug APK is published as a short-lived GitHub Actions artifact after a successful build.
+To configure the API host:
 
-## Package
+```bash
+gradle assembleDebug --no-daemon -PAPI_BASE_URL=https://your-service.example
+```
 
-- Application ID: `ai.researchmate.mobile`
-- Minimum Android: API 26
-- Compile SDK: API 37
-- UI: Jetpack Compose + Material 3
+Do not embed provider API keys or secrets in the APK. Keep those on the server.
