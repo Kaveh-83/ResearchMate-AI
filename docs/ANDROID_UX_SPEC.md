@@ -3,6 +3,16 @@
 **Product direction:** Native Android research workspace, Persian-first with English technical metadata support.  
 **Visual direction:** Calm scientific workspace; high information density without looking like a spreadsheet. Material 3 components, readable typography, restrained accent color, clear loading/error/empty states.
 
+## Product decisions
+
+- Native Kotlin + Jetpack Compose; no WebView.
+- Persian-first RTL interface; preserve LTR rendering for DOI, URLs, chemical formulae, and numeric metadata.
+- One centrally managed ResearchMate API for all ordinary users. Users do not configure hosting accounts or provider keys.
+- API host is a build-time configuration, not a normal user setting. This allows the host to change without rewriting the app.
+- Local-first storage: personal PDFs and research projects stay on the device unless the user explicitly chooses a cloud feature.
+- Online search is optional and must show a clear unavailable/not-configured state when the service cannot be reached.
+- Never claim AI analysis or full-text access when only bibliographic metadata or an abstract was available.
+
 ## Navigation
 
 Primary bottom navigation:
@@ -10,9 +20,9 @@ Primary bottom navigation:
 - **پژوهش:** create and track research requests.
 - **کتابخانه:** saved papers, imported PDFs, collections.
 - **گزارش‌ها:** completed and draft reports.
-- **تنظیمات:** network/API configuration, language, privacy, export preferences.
+- **تنظیمات:** network diagnostics, language, privacy, export preferences.
 
-The first prototype currently has a simplified top-level home/search/projects navigation. This document defines the target navigation; it is not a claim that all screens are already implemented.
+The current prototype is a functional foundation, not the final screen set.
 
 ## Main screens
 
@@ -76,12 +86,11 @@ Rows are papers; columns are comparable variables such as composition, process, 
 - Version history and reproducibility bundle.
 
 ### 9. Settings and privacy
-- API endpoint configuration.
-- Optional user-owned provider keys, stored securely and never committed.
-- Network diagnostics.
-- Clear consent before sending document text to an AI provider.
-- Local storage and cache management.
+- Network diagnostics (online/offline, API reachable, last successful check).
 - Language and export settings.
+- Local storage and cache management.
+- Explicit consent before sending document text to an AI provider.
+- No API endpoint or provider secret exposed in ordinary settings.
 
 ## UX principles
 
@@ -93,6 +102,8 @@ Rows are papers; columns are comparable variables such as composition, process, 
 6. Use Persian explanations with original English technical terms where helpful.
 7. Make every long-running task resumable and cancellable.
 8. Keep the initial workflow simple; reveal advanced search settings only when needed.
+9. Do not show fake progress percentages; show stage names and verified counters.
+10. Make API unavailability understandable without asking ordinary users to change server settings.
 
 ## Visual tokens (initial proposal)
 
@@ -100,7 +111,7 @@ Rows are papers; columns are comparable variables such as composition, process, 
 - Cards: 14–20 dp corner radius.
 - Typography: Material 3 scale; title, body, metadata hierarchy.
 - Status: distinct labels for queued/running/needs-input/partial/completed/failed.
-- Colors: Material dynamic/system palette with one restrained scientific accent; status colors reserved for meaningful state only.
+- Colors: Material dynamic/system palette with one restrained scientific accent; status colors reserved for meaningful states only.
 - RTL: Persian UI must be tested for mixed RTL/LTR text, DOI, URLs, chemical formulae, and numerical values.
 
 ## Design and implementation sequence
