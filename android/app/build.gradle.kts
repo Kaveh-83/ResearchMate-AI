@@ -5,7 +5,7 @@ plugins {
 
 android {
     namespace = "ai.researchmate.mobile"
-    compileSdk = 37
+    compileSdk = 36
 
     defaultConfig {
         val configuredApiBaseUrl = providers.gradleProperty("API_BASE_URL").orElse("").get()
@@ -41,7 +41,7 @@ android {
 }
 
 dependencies {
-    val composeBom = platform("androidx.compose:compose-bom:2026.09.00")
+    val composeBom = platform("androidx.compose:compose-bom:2026.07.00")
     implementation(composeBom)
     androidTestImplementation(composeBom)
 
