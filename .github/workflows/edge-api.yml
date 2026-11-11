@@ -1,0 +1,28 @@
+name: Edge API checks
+
+on:
+  push:
+    branches:
+      - main
+      - feature/android-native-platform
+    paths:
+      - "backend/edge-worker/**"
+      - ".github/workflows/edge-api.yml"
+  pull_request:
+    paths:
+      - "backend/edge-worker/**"
+      - ".github/workflows/edge-api.yml"
+
+jobs:
+  typecheck:
+    runs-on: ubuntu-latest
+    defaults:
+      run:
+        working-directory: backend/edge-worker
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+      - run: npm install --no-audit --no-fund
+      - run: npm run typecheck
