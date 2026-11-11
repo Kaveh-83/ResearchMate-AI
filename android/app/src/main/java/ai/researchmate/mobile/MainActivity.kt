@@ -34,6 +34,9 @@ import androidx.compose.runtime.saveable.rememberSaveable
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.text.font.FontWeight
+import androidx.compose.ui.platform.LocalLayoutDirection
+import androidx.compose.ui.unit.LayoutDirection
+import androidx.compose.runtime.CompositionLocalProvider
 import androidx.compose.ui.text.input.KeyboardType
 import androidx.compose.ui.unit.dp
 import kotlinx.coroutines.launch
@@ -43,11 +46,13 @@ class MainActivity : ComponentActivity() {
         super.onCreate(savedInstanceState)
         setContent {
             MaterialTheme {
-                Surface(
-                    modifier = Modifier.fillMaxSize(),
-                    color = MaterialTheme.colorScheme.background,
-                ) {
-                    ResearchMateHome()
+                CompositionLocalProvider(LocalLayoutDirection provides LayoutDirection.Rtl) {
+                    Surface(
+                        modifier = Modifier.fillMaxSize(),
+                        color = MaterialTheme.colorScheme.background,
+                    ) {
+                        ResearchMateHome()
+                    }
                 }
             }
         }
@@ -159,7 +164,7 @@ private fun ResearchMateHome() {
 
 @Composable
 private fun LiteratureSearchScreen() {
-    var apiBaseUrl by rememberSaveable { mutableStateOf("") }
+    val apiBaseUrl = BuildConfig.API_BASE_URL
     var query by rememberSaveable { mutableStateOf("") }
     var yearFrom by rememberSaveable { mutableStateOf("2021") }
     var yearTo by rememberSaveable { mutableStateOf("2026") }
@@ -175,17 +180,13 @@ private fun LiteratureSearchScreen() {
     ) {
         Text("جست‌وجوی مقالات علمی", style = MaterialTheme.typography.titleLarge, fontWeight = FontWeight.Bold)
         Text(
-            "برای جست‌وجوی زنده، ابتدا آدرس Worker مستقرشده را وارد کن. این آدرس پس از استقرار سرور در اختیارمان قرار می‌گیرد.",
+            if (apiBaseUrl.isBlank()) {
+                "جست‌وجوی آنلاین پس از فعال‌شدن سرویس مرکزی در دسترس قرار می‌گیرد. نیازی به تنظیم سرور توسط کاربر نیست."
+            } else {
+                "اتصال به سرویس پژوهشی مرکزی آماده است."
+            },
             style = MaterialTheme.typography.bodySmall,
             color = MaterialTheme.colorScheme.onSurfaceVariant,
-        )
-        OutlinedTextField(
-            value = apiBaseUrl,
-            onValueChange = { apiBaseUrl = it },
-            modifier = Modifier.fillMaxWidth(),
-            label = { Text("آدرس API") },
-            placeholder = { Text("https://your-worker.workers.dev") },
-            singleLine = true,
         )
         OutlinedTextField(
             value = query,
@@ -219,8 +220,8 @@ private fun LiteratureSearchScreen() {
                 results = emptyList()
                 resultCount = null
                 val base = apiBaseUrl.trim().trimEnd('/')
-                if (!base.startsWith("https://") || base.contains("your-worker")) {
-                    errorMessage = "آدرس HTTPS سرور هنوز تنظیم نشده است. پس از استقرار Worker، آدرس واقعی را اینجا وارد کن."
+                if (base.isBlank() || !base.startsWith("https://")) {
+                    errorMessage = "سرویس آنلاین این نسخه هنوز پیکربندی نشده است. این بخش پس از راه‌اندازی سرور فعال می‌شود."
                 } else if (query.trim().length < 2) {
                     errorMessage = "حداقل دو نویسه برای جست‌وجو وارد کن."
                 } else if (yearFrom.length != 4 || yearTo.length != 4 || yearFrom.toInt() > yearTo.toInt()) {
