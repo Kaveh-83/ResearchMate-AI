@@ -2,8 +2,16 @@ name = "researchmate-api"
 main = "src/index.ts"
 compatibility_date = "2026-10-01"
 
-[ observability ]
+[observability]
 enabled = true
 
-[ vars ]
+[vars]
 APP_ALLOWED_ORIGINS = ""
+
+[[ratelimits]]
+name = "SEARCH_RATE_LIMITER"
+namespace_id = "73101"
+
+[ratelimits.simple]
+limit = 15
+period = 60
