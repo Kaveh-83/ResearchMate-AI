@@ -8,15 +8,16 @@ android {
     compileSdk = 36
 
     defaultConfig {
-        val configuredApiBaseUrl = providers.gradleProperty("API_BASE_URL").orElse("").get()
+        val configuredApiBaseUrl = providers.gradleProperty("API_BASE_URL").orElse("")
+            .get()
             .replace("\\", "\\\\")
             .replace("\"", "\\\"")
         buildConfigField("String", "API_BASE_URL", "\"$configuredApiBaseUrl\"")
         applicationId = "ai.researchmate.mobile"
         minSdk = 26
         targetSdk = 36
-        versionCode = 1
-        versionName = "0.1.0"
+        versionCode = 2
+        versionName = "0.2.0"
     }
 
     buildTypes {
