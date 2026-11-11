@@ -32,7 +32,8 @@ jobs:
 
       - name: Install required SDK packages
         run: |
-          sdkmanager "platforms;android-37" "build-tools;36.0.0"
+          # API 37 is currently distributed through the Android SDK preview channel.
+          sdkmanager --channel=3 "platforms;android-37" "build-tools;36.0.0"
 
       - uses: gradle/actions/setup-gradle@v4
         with:
