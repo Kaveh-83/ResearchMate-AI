@@ -16,6 +16,7 @@ on:
 jobs:
   build-debug:
     runs-on: ubuntu-latest
+    timeout-minutes: 20
     steps:
       - uses: actions/checkout@v4
 
@@ -27,12 +28,10 @@ jobs:
       - name: Setup Android SDK
         uses: android-actions/setup-android@v3
         with:
-          # The legacy "tools" SDK package is no longer published.
           packages: "platform-tools"
 
       - name: Install required SDK packages
         run: |
-          # Use the stable Android 16 / API 36 platform available on hosted runners.
           sdkmanager "platforms;android-36" "build-tools;36.0.0"
 
       - uses: gradle/actions/setup-gradle@v4
@@ -41,7 +40,7 @@ jobs:
 
       - name: Assemble debug APK
         working-directory: android
-        run: gradle assembleDebug --no-daemon
+        run: gradle assembleDebug --no-daemon -PAPI_BASE_URL=https://researchmate-ai.kavehjafari710.workers.dev
 
       - uses: actions/upload-artifact@v4
         with:
