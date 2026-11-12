@@ -1,6 +1,9 @@
 package ai.researchmate.mobile
 
 import android.content.Context
+import java.util.UUID
+
+data class ResearchProject(val id: String = UUID.randomUUID().toString(), val title: String, val topic: String, val paperContext: String, val prompt: String, val updatedAtMillis: Long = System.currentTimeMillis())
 
 /**
  * Backwards-compatible facade for the prompt studio.
