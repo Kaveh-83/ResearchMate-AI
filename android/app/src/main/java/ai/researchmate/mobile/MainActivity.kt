@@ -168,7 +168,7 @@ private fun ResearchMateHome() {
         }
     }
 
-    val showBottomBar = page !in setOf("prompt", "detail", "pdf", "projects")
+    val showBottomBar = page !in setOf("detail", "pdf")
     Scaffold(
         containerColor = MaterialTheme.colorScheme.background,
         bottomBar = {
@@ -232,8 +232,9 @@ private fun ResearchMateHome() {
                     )
                     "projects" -> ProjectScreen(
                         projects,
-                        { selected -> topic = selected.topic; papersContext = selected.paperContext; projectId = selected.id; page = "prompt" },
-                        { deleted -> ProjectStore.delete(context, deleted.id); reload() }
+                        onBack = { page = "home" },
+                        open = { selected -> topic = selected.topic; papersContext = selected.paperContext; projectId = selected.id; page = "prompt" },
+                        delete = { deleted -> ProjectStore.delete(context, deleted.id); reload() }
                     )
                     "prompt" -> key(topic + papersContext + projectId.orEmpty()) {
                         val old = projects.firstOrNull { it.id == projectId }
@@ -458,10 +459,10 @@ private fun LiteratureWork.promptText(): String {
 }
 
 @Composable
-private fun ProjectScreen(projects: List<ResearchProject>, open: (ResearchProject) -> Unit, delete: (ResearchProject) -> Unit) {
+private fun ProjectScreen(projects: List<ResearchProject>, onBack: () -> Unit, open: (ResearchProject) -> Unit, delete: (ResearchProject) -> Unit) {
     Column(Modifier.fillMaxSize(), verticalArrangement = Arrangement.spacedBy(8.dp)) {
         Row(verticalAlignment = Alignment.CenterVertically) {
-            TextButton(onClick = { }) { Text("پروژه‌ها") }
+            TextButton(onClick = onBack) { Icon(Icons.Default.ArrowForward, null); Text("بازگشت") }
             Spacer(Modifier.weight(1f))
             Text(projects.size.toString() + " پروژه", style = MaterialTheme.typography.labelMedium)
         }
