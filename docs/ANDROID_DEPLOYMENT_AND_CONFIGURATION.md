@@ -11,12 +11,23 @@ The API endpoint is compiled into each app build. It is intentionally not editab
 The endpoint is supplied by the build operator:
 
 ```bash
-./gradlew :app:assembleDebug -PAPI_BASE_URL=https://your-service.example
+gradle assembleDebug --no-daemon -PAPI_BASE_URL=https://researchmate-ai.kavehjafari710.workers.dev
 ```
 
-If `API_BASE_URL` is omitted, the app remains installable and local UI remains usable, but online literature search displays a clear not-configured message.
+If `API_BASE_URL` is omitted, the app remains installable and local UI remains usable, but online literature search displays a not-configured message.
 
 Do not put provider secrets in `API_BASE_URL`. This value is a public service address, not a credential. OpenAlex/provider credentials belong on the server side.
+
+## Current deployment verification
+
+- Worker name: `researchmate-ai`
+- Base URL: `https://researchmate-ai.kavehjafari710.workers.dev`
+- `GET /v1/health`: verified HTTP 200.
+- `GET /v1/literature/search`: currently HTTP 429 because the deployed Worker reports that `OPENALEX_API_KEY` is not configured in its production environment.
+
+To fix the current search outage, open Cloudflare → Workers & Pages → `researchmate-ai` → Settings → Variables and Secrets. Add a Secret named exactly `OPENALEX_API_KEY`, save it, and redeploy the Worker. Confirm it is attached to this Worker and the production environment, not a Pages project, a different Worker, or a local `wrangler.toml` variable.
+
+The GitHub repository secrets `CLOUDFLARE_API_TOKEN` and `CLOUDFLARE_ACCOUNT_ID` only authorize GitHub Actions to deploy the Worker. They do not configure the OpenAlex provider key.
 
 ## Hosting independence
 
@@ -31,4 +42,4 @@ The Android client calls the stable ResearchMate API contract, not Cloudflare-sp
 
 ## Current implementation boundary
 
-This is a configuration and UX foundation only. It does not mean a public API has been deployed. The Worker remains provisional until deployed and tested from Iranian mobile and fixed-line networks.
+This is an early native client. A successful debug build and a healthy Worker do not imply that literature search, full-text analysis, AI synthesis, research-gap detection, or report generation are all available.
