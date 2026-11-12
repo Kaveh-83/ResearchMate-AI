@@ -1,303 +1,170 @@
 package ai.researchmate.mobile
-
 import android.content.ClipData
-import android.content.Context
 import android.widget.Toast
-import androidx.compose.foundation.layout.Arrangement
-import androidx.compose.foundation.layout.Column
-import androidx.compose.foundation.layout.Row
-import androidx.compose.foundation.layout.Spacer
-import androidx.compose.foundation.layout.fillMaxSize
-import androidx.compose.foundation.layout.fillMaxWidth
-import androidx.compose.foundation.layout.height
-import androidx.compose.foundation.layout.padding
+import androidx.compose.animation.animateContentSize
+import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.foundation.verticalScroll
-import androidx.compose.material3.Button
-import androidx.compose.material3.Card
-import androidx.compose.material3.CardDefaults
-import androidx.compose.material3.MaterialTheme
-import androidx.compose.material3.OutlinedButton
-import androidx.compose.material3.OutlinedTextField
-import androidx.compose.material3.Text
-import androidx.compose.runtime.Composable
-import androidx.compose.runtime.getValue
-import androidx.compose.runtime.remember
+import androidx.compose.material3.*
+import androidx.compose.runtime.*
 import androidx.compose.runtime.saveable.rememberSaveable
-import androidx.compose.runtime.mutableStateOf
-import androidx.compose.runtime.setValue
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.text.font.FontWeight
-import androidx.compose.ui.unit.dp
 import androidx.compose.ui.text.style.TextAlign
+import androidx.compose.ui.unit.dp
 import androidx.compose.foundation.text.selection.SelectionContainer
+import java.time.Year
+
+private val outputs=listOf("مقاله پژوهشی اصیل","مقاله مروری روایتی","مرور نظام‌مند","فراتحلیل","پروپوزال پژوهشی","فصل پایان‌نامه","گزارش فنی/صنعتی","نقد و داوری مقاله","پوستر علمی","گزارش مرور ادبیات و نقشه پژوهش")
 
 @Composable
-fun PromptStudioScreen(
-    initialTopic: String,
-    initialPaperContext: String,
-) {
-    var topic by rememberSaveable(initialTopic) { mutableStateOf(initialTopic) }
-    var domain by rememberSaveable { mutableStateOf("علوم مواد و مهندسی متالورژی") }
-    var goal by rememberSaveable { mutableStateOf("تحلیل انتقادی شواهد، مقایسه نتایج و استخراج شکاف پژوهشی قابل اجرا") }
-    var reviewType by rememberSaveable { mutableStateOf("مرور انتقادی و ترکیب شواهد") }
-    var academicLevel by rememberSaveable { mutableStateOf("تحصیلات تکمیلی؛ در حد مقاله علمی قابل ارسال به مجله") }
-    var years by rememberSaveable { mutableStateOf("2020 تا 2026، با استفاده از منابع بنیادی قدیمی‌تر در صورت ضرورت") }
-    var outputLanguage by rememberSaveable { mutableStateOf("فارسی علمی؛ اصطلاحات تخصصی انگلیسی در اولین کاربرد داخل پرانتز") }
-    var citationStyle by rememberSaveable { mutableStateOf("APA 7") }
-    var corpus by rememberSaveable { mutableStateOf("مقالات داوری‌شده و دسترسی‌آزاد؛ ابتدا منابع ارائه‌شده و سپس منابع علمی قابل راستی‌آزمایی") }
-    var constraints by rememberSaveable { mutableStateOf("هیچ داده، نتیجه، DOI، رتبه مجله یا منبعی ساخته نشود. محدودیت دسترسی به متن کامل صریح اعلام شود.") }
-    var paperContext by rememberSaveable(initialPaperContext) { mutableStateOf(initialPaperContext) }
-
-    val prompt = remember(
-        topic, domain, goal, reviewType, academicLevel, years, outputLanguage,
-        citationStyle, corpus, constraints, paperContext,
-    ) {
-        generateFullResearchPrompt(
-            topic = topic,
-            domain = domain,
-            goal = goal,
-            reviewType = reviewType,
-            academicLevel = academicLevel,
-            years = years,
-            outputLanguage = outputLanguage,
-            citationStyle = citationStyle,
-            corpus = corpus,
-            constraints = constraints,
-            paperContext = paperContext,
-        )
+fun PromptStudioScreen(initialTopic:String,initialPaperContext:String,initialProjectTitle:String,initialProjectId:String?,onSaveProject:(ResearchProject)->Unit){
+ val ctx=LocalContext.current;val now=Year.now().value
+ var title by rememberSaveable(initialProjectId){mutableStateOf(initialProjectTitle)}
+ var topic by rememberSaveable(initialProjectId,initialTopic){mutableStateOf(initialTopic)}
+ var domain by rememberSaveable{mutableStateOf("علوم مواد و مهندسی متالورژی")}
+ var goal by rememberSaveable{mutableStateOf("تولید خروجی علمی دقیق، مستند، انتقادی و قابل ارزیابی")}
+ var output by rememberSaveable{mutableStateOf(outputs.first())}
+ var level by rememberSaveable{mutableStateOf("تحصیلات تکمیلی؛ استاندارد مجله تخصصی")}
+ var from by rememberSaveable{mutableStateOf("2020")};var to by rememberSaveable{mutableStateOf(now.toString())}
+ var language by rememberSaveable{mutableStateOf("فارسی علمی؛ اصطلاحات انگلیسی در اولین کاربرد")}
+ var citation by rememberSaveable{mutableStateOf("APA 7")}
+ var audience by rememberSaveable{mutableStateOf("پژوهشگران و داوران مجلات تخصصی")}
+ var journal by rememberSaveable{mutableStateOf("")};var length by rememberSaveable{mutableStateOf("6000 تا 8000 کلمه")}
+ var corpus by rememberSaveable{mutableStateOf("مقالات داوری‌شده، منابع اولیه و دسترسی‌آزاد")}
+ var constraints by rememberSaveable{mutableStateOf("هیچ داده، DOI، منبع یا نتیجه‌ای جعل نشود.")}
+ var papers by rememberSaveable(initialProjectId,initialPaperContext){mutableStateOf(initialPaperContext)}
+ var target by rememberSaveable(initialProjectId){mutableStateOf(90f)}
+ var rounds by rememberSaveable(initialProjectId){mutableStateOf(5f)}
+ var menu by remember{mutableStateOf(false)};var message by remember{mutableStateOf<String?>(null)}
+ val a=from.toIntOrNull();val b=to.toIntOrNull();val valid=a!=null&&b!=null&&a in 1800..now&&b in 1800..now&&a<=b
+ val promptText=remember(topic,domain,goal,output,level,from,to,language,citation,audience,journal,length,corpus,constraints,papers,target,rounds,valid){if(!valid)"" else buildPrompt(topic,domain,goal,output,level,a!!,b!!,language,citation,audience,journal,length,corpus,constraints,papers,target.toInt(),rounds.toInt())}
+ Column(Modifier.fillMaxSize().verticalScroll(rememberScrollState()),verticalArrangement=Arrangement.spacedBy(8.dp)){
+  Text("استودیوی پیشرفته پرامپت",style=MaterialTheme.typography.titleLarge,fontWeight=FontWeight.Bold)
+  Field("نام پروژه",title,{title=it});Field("موضوع یا سؤال اصلی *",topic,{topic=it},2);Field("حوزه علمی و زیرشاخه",domain,{domain=it});Field("هدف، مسئله و سؤال‌های کلیدی",goal,{goal=it},3)
+  Text("نوع خروجی",fontWeight=FontWeight.SemiBold)
+  Column{OutlinedButton({menu=true},Modifier.fillMaxWidth()){Text(output)};DropdownMenu(menu,{menu=false}){outputs.forEach{opt->DropdownMenuItem(text={Text(opt)},onClick={output=opt;menu=false})}}}
+  Field("سطح علمی",level,{level=it},2);Field("مخاطب",audience,{audience=it});Field("مجله یا راهنمای نگارش هدف",journal,{journal=it});Field("حجم مورد انتظار",length,{length=it})
+  Text("بازه سال منابع")
+  Row(horizontalArrangement=Arrangement.spacedBy(8.dp)){Field("از سال",from,{from=it.filter(Char::isDigit).take(4)},modifier=Modifier.weight(1f));Field("تا سال",to,{to=it.filter(Char::isDigit).take(4)},modifier=Modifier.weight(1f))}
+  if(!valid)Text("سال‌ها باید بین 1800 و "+now+" باشند و شروع از پایان بیشتر نباشد.",color=MaterialTheme.colorScheme.error)
+  Field("زبان و سبک نگارش",language,{language=it},2);Field("سبک رفرنس‌دهی",citation,{citation=it});Field("دامنه منابع",corpus,{corpus=it},2);Field("محدودیت‌ها، بودجه، تجهیزات و ملاحظات ویژه",constraints,{constraints=it},3);Field("مقالات منتقل‌شده از جست‌وجو (قابل ویرایش)",papers,{papers=it},7)
+  Card(Modifier.fillMaxWidth().animateContentSize(),shape=RoundedCornerShape(17.dp),colors=CardDefaults.cardColors(containerColor=MaterialTheme.colorScheme.primaryContainer)){
+   Column(Modifier.padding(14.dp),verticalArrangement=Arrangement.spacedBy(7.dp)){
+    Text("هدف کیفیت خروجی",style=MaterialTheme.typography.titleMedium,fontWeight=FontWeight.Bold)
+    Text("امتیاز هدف: "+target.toInt()+" از 100",style=MaterialTheme.typography.headlineSmall,fontWeight=FontWeight.Bold)
+    LinearProgressIndicator(progress={target/100f},Modifier.fillMaxWidth().height(9.dp))
+    Text(rank(target.toInt()),fontWeight=FontWeight.SemiBold)
+    Slider(target,{target=it},valueRange=60f..98f,steps=37)
+    Row(Modifier.fillMaxWidth(),horizontalArrangement=Arrangement.SpaceBetween){Text("60 قابل قبول",style=MaterialTheme.typography.labelSmall);Text("80 قوی",style=MaterialTheme.typography.labelSmall);Text("90 ممتاز",style=MaterialTheme.typography.labelSmall);Text("98 سخت‌گیرانه",style=MaterialTheme.typography.labelSmall)}
+    Text("حداکثر دور بازبینی: "+rounds.toInt());Slider(rounds,{rounds=it},valueRange=1f..8f,steps=6)
+    Text("در هر دور، مدل متن را امتیازدهی، اصلاح و دوباره ارزیابی می‌کند.",style=MaterialTheme.typography.bodySmall)
+   }
+  }
+  Card(Modifier.fillMaxWidth(),shape=RoundedCornerShape(15.dp)){
+   Column(Modifier.padding(12.dp),verticalArrangement=Arrangement.spacedBy(8.dp)){
+    Text("پرامپت نهایی و چرخه‌ای",style=MaterialTheme.typography.titleMedium,fontWeight=FontWeight.Bold)
+    Row(horizontalArrangement=Arrangement.spacedBy(7.dp)){
+     Button(onClick={val cb=ctx.getSystemService(Context.CLIPBOARD_SERVICE) as android.content.ClipboardManager;cb.setPrimaryClip(ClipData.newPlainText("ResearchMate prompt",promptText));Toast.makeText(ctx,"پرامپت کپی شد",Toast.LENGTH_SHORT).show()},enabled=topic.isNotBlank()&&valid,modifier=Modifier.weight(1f)){Text("کپی پرامپت")}
+     OutlinedButton(onClick={if(title.isBlank()||topic.isBlank()||!valid)message="نام پروژه، موضوع و سال معتبر را کامل کن." else {onSaveProject(ResearchProject(id=initialProjectId?:java.util.UUID.randomUUID().toString(),title=title.trim(),topic=topic.trim(),paperContext=papers,prompt=promptText));message="پروژه ذخیره شد."}},enabled=title.isNotBlank()&&topic.isNotBlank()&&valid){Text("ذخیره پروژه")}
     }
-    val context = LocalContext.current
-
-    Column(
-        modifier = Modifier
-            .fillMaxSize()
-            .verticalScroll(rememberScrollState()),
-        verticalArrangement = Arrangement.spacedBy(10.dp),
-    ) {
-        Text(
-            "سازنده پرامپت پژوهشی",
-            style = MaterialTheme.typography.titleLarge,
-            fontWeight = FontWeight.Bold,
-        )
-        Text(
-            "جزئیات پروژه را وارد کن. پرامپت خروجی شامل پروتکل جست‌وجو، غربالگری، تحلیل تک‌مقاله‌ای، مقایسه شواهد، شکاف پژوهشی و مرحله داوری انتقادی است.",
-            style = MaterialTheme.typography.bodySmall,
-            color = MaterialTheme.colorScheme.onSurfaceVariant,
-        )
-
-        PromptField("موضوع یا سؤال اصلی پژوهش *", topic, { topic = it }, minLines = 2)
-        PromptField("حوزه علمی", domain, { domain = it })
-        PromptField("هدف دقیق پژوهش", goal, { goal = it }, minLines = 2)
-        PromptField("نوع خروجی", reviewType, { reviewType = it })
-        PromptField("سطح علمی و مخاطب", academicLevel, { academicLevel = it })
-        PromptField("بازه زمانی منابع", years, { years = it })
-        PromptField("زبان خروجی و سبک نگارش", outputLanguage, { outputLanguage = it }, minLines = 2)
-        PromptField("سبک رفرنس‌دهی", citationStyle, { citationStyle = it })
-        PromptField("دامنه و نوع منابع", corpus, { corpus = it }, minLines = 2)
-        PromptField("محدودیت‌ها و معیارهای ویژه", constraints, { constraints = it }, minLines = 3)
-        PromptField("اطلاعات مقاله/مقالات منتخب (اختیاری)", paperContext, { paperContext = it }, minLines = 5)
-
-        Card(
-            modifier = Modifier.fillMaxWidth(),
-            shape = RoundedCornerShape(14.dp),
-            colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.primaryContainer),
-        ) {
-            Column(
-                modifier = Modifier.padding(14.dp),
-                verticalArrangement = Arrangement.spacedBy(8.dp),
-            ) {
-                Text("پرامپت آماده اجرا", style = MaterialTheme.typography.titleMedium, fontWeight = FontWeight.Bold)
-                Text(
-                    "پرامپت تولیدشده شامل دستور ضدساختگی، الزام ارجاع‌دهی برای ادعاها، جدول مشخصات هر مقاله، مقایسه روش‌ها و مرحله داوری انتقادی است.",
-                    style = MaterialTheme.typography.bodySmall,
-                )
-                Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
-                    Button(
-                        onClick = {
-                            val clipboard = context.getSystemService(Context.CLIPBOARD_SERVICE) as android.content.ClipboardManager
-                            clipboard.setPrimaryClip(ClipData.newPlainText("ResearchMate research prompt", prompt))
-                            Toast.makeText(context, "پرامپت کامل کپی شد.", Toast.LENGTH_SHORT).show()
-                        },
-                        enabled = topic.isNotBlank(),
-                        modifier = Modifier.weight(1f),
-                    ) {
-                        Text("کپی پرامپت کامل")
-                    }
-                    OutlinedButton(
-                        onClick = {
-                            topic = ""
-                            paperContext = ""
-                        },
-                    ) {
-                        Text("پاک‌کردن موضوع")
-                    }
-                }
-            }
-        }
-
-        Card(
-            modifier = Modifier.fillMaxWidth(),
-            shape = RoundedCornerShape(14.dp),
-        ) {
-            SelectionContainer {
-                Text(
-                    prompt,
-                    modifier = Modifier.padding(14.dp),
-                    style = MaterialTheme.typography.bodySmall,
-                    textAlign = TextAlign.Start,
-                )
-            }
-        }
-        Spacer(modifier = Modifier.height(16.dp))
-    }
+    message?.let{Text(it,color=MaterialTheme.colorScheme.primary)}
+   }
+  }
+  Card(Modifier.fillMaxWidth(),shape=RoundedCornerShape(15.dp)){SelectionContainer{Text(promptText.ifBlank{"موضوع و سال معتبر را وارد کن."},Modifier.padding(12.dp),style=MaterialTheme.typography.bodySmall,textAlign=TextAlign.Start)}}
+  Spacer(Modifier.height(12.dp))
+ }
 }
+@Composable private fun Field(label:String,value:String,onChange:(String)->Unit,minLines:Int=1,modifier:Modifier=Modifier.fillMaxWidth()){OutlinedTextField(value,onChange,modifier,label={Text(label)},minLines=minLines,singleLine=minLines==1)}
+private fun rank(s:Int)=when{s>=95->"A+ · ممتاز استثنایی";s>=90->"A · ممتاز و بسیار قوی";s>=80->"B · قوی";s>=70->"C · قابل قبول با اصلاح";else->"D · بازنگری اساسی"}
+private fun buildPrompt(topic:String,domain:String,goal:String,output:String,level:String,from:Int,to:Int,language:String,citation:String,audience:String,journal:String,length:String,corpus:String,constraints:String,papers:String,target:Int,rounds:Int):String{
+ val template="""
+# RESEARCHMATE AI — SCIENTIFIC WRITING & ITERATIVE REVIEW
 
-@Composable
-private fun PromptField(
-    label: String,
-    value: String,
-    onValueChange: (String) -> Unit,
-    minLines: Int = 1,
-) {
-    OutlinedTextField(
-        value = value,
-        onValueChange = onValueChange,
-        modifier = Modifier.fillMaxWidth(),
-        label = { Text(label) },
-        minLines = minLines,
-    )
-}
+موضوع: {{TOPIC}}
+حوزه: {{DOMAIN}}
+هدف: {{GOAL}}
+نوع خروجی: {{OUTPUT}}
+سطح: {{LEVEL}}
+مخاطب: {{AUDIENCE}}
+بازه منابع: {{FROM}} تا {{TO}}
+زبان: {{LANGUAGE}}
+سبک استناد: {{CITATION}}
+مجله هدف: {{JOURNAL}}
+حجم: {{LENGTH}}
+دامنه منابع: {{CORPUS}}
+محدودیت‌ها: {{CONSTRAINTS}}
+امتیاز هدف: {{TARGET}}/100 — {{RANK}}
+حداکثر دور بازبینی: {{ROUNDS}}
 
-private fun generateFullResearchPrompt(
-    topic: String,
-    domain: String,
-    goal: String,
-    reviewType: String,
-    academicLevel: String,
-    years: String,
-    outputLanguage: String,
-    citationStyle: String,
-    corpus: String,
-    constraints: String,
-    paperContext: String,
-): String {
-    return """
-# RESEARCHMATE AI — FULL SCIENTIFIC RESEARCH WORK ORDER
+## نقش و صداقت علمی
+در نقش پژوهشگر ارشد، متخصص روش تحقیق، کتابدار علمی، نویسنده، ویراستار و داور سخت‌گیر عمل کن.
+- مقاله، نویسنده، DOI، عدد، داده، نتیجه، نقل‌قول یا رتبه مجله جعل نکن.
+- یافته منبع، تفسیر و فرضیه را جدا کن؛ هر ادعای علمی و عددی را ارجاع بده.
+- اگر فقط چکیده/فراداده در دسترس است، صریح اعلام کن؛ وانمود نکن متن کامل خوانده شده.
+- شواهد مخالف، نتایج منفی و محدودیت‌ها را حذف نکن.
+- Q1 تا Q4 و ضریب تأثیر فقط با منبع معتبر و سال مربوط گزارش شود. تعداد استناد یا نمره این روبریک معادل رتبه مجله نیست.
+- داده مفقود را «گزارش نشده» بنویس؛ حدس نزن؛ سرقت ادبی ممنوع.
+- مشخصات کتاب‌شناختی و DOI را کنترل کن؛ جست‌وجوی انجام‌نشده را انجام‌شده جلوه نده.
 
-## 1. نقش و استاندارد عملکرد
-در نقش یک تیم پژوهشی چندتخصصی شامل پژوهشگر ارشد حوزه، متخصص روش تحقیق، تحلیل‌گر شواهد، کتابدار علمی، ویراستار دانشگاهی و داور سخت‌گیر مجله عمل کن. هدف تولید خروجی مستند، بازتولیدپذیر، انتقادی و قابل ارزیابی است؛ نه صرفاً متنی روان و طولانی.
+## اصول مقاله‌نویسی
+عنوان دقیق و متناسب با شواهد؛ چکیده ساختاریافته؛ 4 تا 8 کلیدواژه استاندارد.
+مقدمه: زمینه، وضعیت دانش، مسئله، شکاف مستند، اهمیت و هدف/فرضیه.
+مرور ادبیات: ترکیب موضوعی و انتقادی، نه فهرست مقاله‌ها؛ تحلیل توافق و تناقض.
+روش: مواد، ترکیب، تجهیزات، شرایط، نمونه، کنترل، اندازه‌گیری و آمار بازتولیدپذیر؛ فقط داده واقعی.
+نتایج: جداسازی مشاهده از تفسیر، واحد SI، ارقام معنادار، عدم‌قطعیت و شرایط آزمون.
+بحث: تفسیر، مقایسه منصفانه، سازوکار محتمل، شواهد مخالف و محدودیت.
+نتیجه‌گیری: پاسخ مستقیم به سؤال، بدون داده جدید یا تعمیم ناموجه.
+جدول/شکل: شماره، عنوان خودبسنده، واحد، راهنمای علائم و ارجاع در متن؛ شکل/داده جعلی ممنوع.
+نمادها و اختصارات را تعریف و یکدست کن؛ لحن دقیق و بی‌طرف باشد.
+تعارض منافع، حمایت مالی، دسترس‌پذیری داده و اخلاق را در صورت ارتباط اعلام کن.
+PRISMA و سایر راهنماها فقط برای طرح مرتبط.
 
-## 2. مشخصات پروژه
-- موضوع/سؤال اصلی: $topic
-- حوزه علمی: $domain
-- هدف: $goal
-- نوع خروجی: $reviewType
-- سطح علمی/مخاطب: $academicLevel
-- بازه زمانی منابع: $years
-- زبان و سبک: $outputLanguage
-- سبک استناد: $citationStyle
-- دامنه منابع: $corpus
-- محدودیت‌های ویژه: $constraints
+## ساختار متناسب با نوع خروجی
+- مقاله اصیل: Title, Abstract, Keywords, Introduction, Materials and Methods, Results, Discussion, Conclusion, Declarations, References.
+- مرور روایتی: دامنه انتخاب، دسته‌بندی موضوعی، سنتز انتقادی و محدودیت پوشش.
+- مرور نظام‌مند: سؤال، پروتکل، پایگاه و تاریخ جست‌وجو، رشته جست‌وجو، معیارهای ورود/خروج، غربالگری، استخراج، خطر سوگیری و سنتز.
+- فراتحلیل: اندازه اثر، مدل، ناهمگنی، حساسیت و سوگیری انتشار، فقط با داده کافی.
+- پروپوزال: مسئله، پیشینه، شکاف، نوآوری، اهداف، فرضیه، روش، متغیرها، زمان، بودجه و ریسک.
+- فصل پایان‌نامه: ساختار دانشگاهی و پیوند منطقی فصل‌ها.
+- گزارش صنعتی: مسئله عملیاتی، شرایط، روش، نتایج، هزینه، ریسک، مقیاس‌پذیری و توصیه.
+- نقد مقاله: خلاصه منصفانه، قوت‌ها، ایرادهای روش‌شناختی و اصلاحات.
+- پوستر: مسئله، هدف، روش، یافته‌ها، نتیجه و منابع کلیدی.
+- نقشه پژوهش: خوشه‌ها، روندها، مطالعات محوری واقعی، شکاف‌ها و مسیر آینده.
 
-## 3. اطلاعات مقالات ارائه‌شده
-${paperContext.ifBlank { "فعلاً مقاله مشخصی ارائه نشده است. ابتدا منابع معتبر را جست‌وجو و فهرست اولیه را برای بررسی ارائه کن." }}
+## مقالات ورودی
+{{PAPERS}}
 
-## 4. اصول غیرقابل نقض صحت علمی
-1. هیچ مقاله، نویسنده، عنوان، سال، DOI، عدد، نتیجه آزمایش، نقل‌قول، نام مجله یا رتبه‌ای را جعل نکن.
-2. اگر به متن کامل دسترسی نداری، صریحاً بگو تحلیل بر پایه فراداده یا چکیده است؛ وانمود نکن متن کامل خوانده شده است.
-3. بین «یافته گزارش‌شده در منبع»، «تفسیر خودت» و «فرضیه پیشنهادی» تمایز روشن بگذار.
-4. هر ادعای علمی، عددی، مقایسه‌ای یا تاریخی باید به منبع مشخص ارجاع داشته باشد.
-5. اگر داده‌ای موجود نیست، عبارت «گزارش نشده/قابل راستی‌آزمایی نیست» را ثبت کن؛ مقدار جایگزین حدس نزن.
-6. از تعمیم نتایج یک ماده، ترکیب، فرایند یا شرایط آزمون به شرایط دیگر بدون استدلال معتبر خودداری کن.
-7. رتبه مجله (Q1 تا Q4)، ضریب تأثیر و شاخص‌های مشابه را فقط از منبع معتبر و مربوط به همان سال گزارش کن. تعداد استناد به‌تنهایی معیار کیفیت یا رتبه مجله نیست.
-8. منابع متناقض را پنهان نکن؛ اختلاف نتایج و علت‌های محتمل آن را تحلیل کن.
-9. از بازنویسی نزدیک به متن مقاله و سرقت ادبی خودداری کن. نقل‌قول مستقیم را محدود و مشخص کن.
-10. محدودیت پوشش پایگاه‌ها، فیلتر دسترسی‌آزاد و سوگیری جست‌وجو را گزارش کن.
+## استخراج شواهد
+برای هر مقاله: ارجاع کامل، DOI، نوع سند، سال، نشریه، تعداد استناد با تاریخ و پایگاه، هدف، نمونه/مواد، روش، شرایط آزمون، نتایج کمی، محدودیت و سطح دسترسی متن را استخراج کن. ماتریس مقایسه بساز و تفاوت شرایط آزمون را آشکار نگه دار. هر ادعا را به شاهد واقعی وصل کن.
 
-## 5. پروتکل پژوهش و جست‌وجو
-الف) سؤال پژوهش را به اجزای مفهومی، متغیرها و زیرسؤال‌ها بشکن.
-ب) مترادف‌ها، صورت‌های املایی، اصطلاحات تخصصی، کلیدواژه‌های قدیمی/جدید و عبارت‌های جست‌وجو را پیشنهاد بده.
-ج) پایگاه‌ها و منابعی را که واقعاً جست‌وجو کرده‌ای با تاریخ جست‌وجو گزارش کن. جست‌وجوی انجام‌نشده را انجام‌شده معرفی نکن.
-د) معیارهای ورود و خروج را پیش از غربالگری روشن کن: سال، زبان، نوع سند، موضوع، روش، دسترسی و ارتباط مستقیم.
-هـ) رکوردهای تکراری را با DOI و سپس عنوان/نویسنده/سال شناسایی کن.
-و) برای هر رکورد تصمیم «وارد»، «حذف» یا «نیازمند بررسی» و دلیل کوتاه ثبت کن.
-ز) اگر جست‌وجوی واقعی در دسترس نیست، پروتکل و رشته‌های جست‌وجو را آماده کن اما نتایج فرضی نساز.
+## روبریک 100 امتیازی
+اصالت و وضوح سؤال 15%؛ کیفیت شواهد 15%؛ روش‌شناسی و بازتولیدپذیری 15%؛ تحلیل انتقادی 15%؛ اعتبار نتایج و عدم‌قطعیت 10%؛ ساختار 10%؛ نگارش 8%؛ صحت ارجاع 7%؛ تناسب قالب 5%.
+هر معیار را از 0 تا 10 نمره بده، وزن‌ها را اعمال کن و برای هر امتیاز شاهد و دلیل ارائه کن.
+رده داخلی: 95–100 A+؛ 90–94 A؛ 80–89 B؛ 70–79 C؛ زیر 70 D. این رتبه، Q مجله یا تضمین پذیرش نیست.
 
-## 6. تحلیل مستقل هر مقاله
-برای تک‌تک مقاله‌ها یک شناسنامه و تحلیل مستقل ارائه کن:
-- ارجاع کامل کتاب‌شناختی مطابق $citationStyle
-- عنوان اصلی، نویسندگان، سال، مجله/ناشر، نوع سند و DOI/URL
-- تعداد استناد و تاریخ/پایگاه دریافت آن، فقط در صورت وجود داده قابل مشاهده
-- رتبه مجله و ضریب تأثیر، فقط در صورت راستی‌آزمایی مستقل؛ در غیر این صورت «نامشخص»
-- هدف و سؤال پژوهش
-- ماده/ترکیب/نمونه، فرایند ساخت یا آماده‌سازی و شرایط آزمون
-- روش‌ها، تجهیزات، مدل‌ها و روش تحلیل داده
-- نتایج کمی با واحد، دامنه و شرایط دقیق
-- مهم‌ترین شکل‌ها و جدول‌ها؛ فقط اگر واقعاً قابل مشاهده/استخراج بوده‌اند
-- نقاط قوت، محدودیت‌ها، سوگیری‌ها و شکاف‌های خود مقاله
-- میزان ارتباط با سؤال اصلی پژوهش و دلیل آن
-- سطح دسترسی شواهد: متن کامل، چکیده، یا صرفاً فراداده
+## چرخه اجباری ارزیابی و بازنویسی
+1. پیش‌نویس کامل را در قالب انتخاب‌شده تولید کن.
+2. منابع و ارجاعات را از نظر واقعی‌بودن و تطبیق کتاب‌شناختی ممیزی کن.
+3. در نقش داور مستقل، متن را نمره بده؛ محل ایراد و شدت را مشخص کن.
+4. ایرادها را بر اساس اثر بر اعتبار علمی اولویت‌بندی کن.
+5. متن را اصلاح کن؛ برای افزایش نمره داده یا منبع نساز.
+6. دوباره با همان روبریک نمره بده و تغییر معیارها را گزارش کن.
+7. مراحل 3 تا 6 را حداکثر {{ROUNDS}} دور تکرار کن یا وقتی به {{TARGET}} رسیدی و ایراد اساسی باقی نماند متوقف شو.
+8. اگر به هدف نرسیدی، پس از دور آخر متوقف شو و نمره واقعی، فاصله تا هدف و ایرادهای باقی‌مانده را گزارش کن؛ رسیدن به هدف را جعل نکن.
+9. نمره هر دور مستقل و انتقادی باشد.
 
-## 7. ماتریس مقایسه بین مقالات
-یک جدول مقایسه‌ای بساز که در آن، هر ردیف یک مقاله و ستون‌ها شامل سال، نوع ماده/سامانه، روش ساخت، متغیرهای کلیدی، روش آزمون، شرایط آزمون، نتایج کمی، محدودیت‌ها و DOI باشد.
-- فقط مقادیر واقعاً قابل مقایسه را کنار هم قرار بده.
-- واحدها را یکسان‌سازی کن و تبدیل واحد را نشان بده.
-- اگر شرایط آزمون متفاوت است، از رتبه‌بندی مستقیم نتایج خودداری کن.
-- داده‌های گمشده را با «گزارش نشده» مشخص کن.
-
-## 8. ترکیب انتقادی شواهد
-- روندهای اصلی و نقاط توافق را شناسایی کن.
-- اختلاف‌ها و تناقض‌ها را همراه با توضیح‌های محتمل بررسی کن.
-- اثر روش ساخت، ترکیب، ریزساختار، شرایط آزمون و روش اندازه‌گیری را جداگانه تحلیل کن.
-- قدرت شواهد را با توجه به تعداد مطالعات، کیفیت روش، قابلیت تکرار و سازگاری نتایج توصیف کن.
-- از جمع‌بندی توصیفی صرف عبور کن و رابطه بین یافته‌ها را توضیح بده.
-
-## 9. استخراج شکاف پژوهشی و ایده‌های آینده
-برای هر شکاف پیشنهادی:
-- شواهد پشتیبان و مقاله‌های مرتبط را ذکر کن.
-- توضیح بده شکاف از چه نوعی است: متغیر بررسی‌نشده، تناقض نتایج، ضعف روش، کمبود داده، نبود مقیاس‌پذیری یا نبود اعتبارسنجی.
-- میزان اطمینان به جدیدبودن را «کم/متوسط/بالا» همراه با دلیل اعلام کن؛ جدیدبودن را قطعی جلوه نده.
-- امکان‌پذیری آزمایشگاهی/صنعتی، تجهیزات، هزینه نسبی، زمان و ریسک را ارزیابی کن.
-- حداقل سه سؤال پژوهشی یا فرضیه قابل آزمون پیشنهاد بده.
-- برای ایده‌های پیشنهادی، روش آزمون، متغیر مستقل/وابسته و معیار موفقیت را تعیین کن.
-
-## 10. ساختار خروجی نهایی
-1. عنوان دقیق و چکیده ساختاریافته
-2. مسئله، اهمیت و اهداف
-3. سؤال‌ها و روش جست‌وجو/انتخاب منابع
-4. مبانی نظری و دسته‌بندی موضوعی
-5. تحلیل مستقل مطالعات کلیدی
-6. ماتریس مقایسه شواهد
-7. ترکیب انتقادی نتایج
-8. محدودیت‌ها و عدم‌قطعیت‌ها
-9. شکاف‌های پژوهشی اولویت‌بندی‌شده
-10. مسیرهای آینده و پیشنهاد روش اجرایی
-11. نتیجه‌گیری
-12. فهرست منابع کامل و قابل راستی‌آزمایی
-
-## 11. استاندارد ارجاع‌دهی و کنترل منابع
-- ارجاع درون‌متنی را در مجاورت ادعای پشتیبانی‌شده قرار بده.
-- هر منبع در فهرست پایانی باید حداقل یک کاربرد واقعی در متن داشته باشد و هر ارجاع در متن باید در فهرست پایانی موجود باشد.
-- DOI را در قالب پیوند پایدار https://doi.org/... نمایش بده، فقط اگر معتبر است.
-- برای هر منبع، عنوان، نویسنده، سال، نام مجله و شناسه را با داده واقعی تطبیق بده.
-- اگر شماره صفحه یا محل دقیق شاهد موجود نیست، آن را جعل نکن.
-- از رفرنس‌های ثانویه برای ادعایی که منبع اولیه آن در دسترس است، بدون توضیح استفاده نکن.
-
-## 12. مرحله داوری مستقل (Reviewer 2)
-پس از تهیه پیش‌نویس، نقش داور سخت‌گیر را بگیر و جداگانه بررسی کن:
-- آیا سؤال پژوهش دقیق و پاسخ‌پذیر است؟
-- آیا راهبرد جست‌وجو و معیارهای انتخاب بازتولیدپذیرند؟
-- آیا ادعاهای کلیدی واقعاً به منابع ارجاع دارند؟
-- آیا مقایسه‌ها از نظر ماده، روش و شرایط آزمون معتبرند؟
-- آیا محدودیت‌ها و شواهد مخالف دیده شده‌اند؟
-- آیا شکاف‌ها از شواهد استخراج شده‌اند یا صرفاً حدس‌اند؟
-- آیا نتیجه‌گیری از داده‌ها فراتر رفته است؟
-در پایان، ایرادها را با سطح شدت «اساسی/متوسط/جزئی» فهرست و نسخه اصلاح‌شده را ارائه کن.
-
-## 13. قالب نهایی و رفتار در برابر کمبود داده
-خروجی را علمی، منظم، دارای تیتر و جدول و بدون تکرار تولید کن. هرجا شواهد کافی نیست، آن قسمت را محدود و عدم‌قطعیت را آشکار کن. اگر انجام یک مرحله به فایل، متن کامل، داده یا دسترسی بیرونی نیاز دارد، دقیقاً همان محدودیت را اعلام کن و مراحل انجام‌شده را از مراحل پیشنهادی جدا نگه دار.
-""".trimIndent()
+## تحویل
+متن کامل با تیترهای استاندارد، چکیده، کلیدواژه‌ها، جدول‌ها، ارجاع درون‌متنی و منابع کنترل‌شده را ارائه کن. در پایان جدول امتیاز هر دور، نمره نهایی، رتبه داخلی، هدف و وضعیت دستیابی را بیاور. پذیرش مجله یا کیفیت قطعی را تضمین نکن.
+"""
+ return template
+  .replace("{{TOPIC}}",topic).replace("{{DOMAIN}}",domain).replace("{{GOAL}}",goal)
+  .replace("{{OUTPUT}}",output).replace("{{LEVEL}}",level).replace("{{AUDIENCE}}",audience)
+  .replace("{{FROM}}",from.toString()).replace("{{TO}}",to.toString())
+  .replace("{{LANGUAGE}}",language).replace("{{CITATION}}",citation).replace("{{JOURNAL}}",journal.ifBlank{"تعیین نشده"})
+  .replace("{{LENGTH}}",length).replace("{{CORPUS}}",corpus).replace("{{CONSTRAINTS}}",constraints)
+  .replace("{{TARGET}}",target.toString()).replace("{{RANK}}",rank(target)).replace("{{ROUNDS}}",rounds.toString())
+  .replace("{{PAPERS}}",papers.ifBlank{"مقاله‌ای ضمیمه نشده؛ منابع واقعی را جست‌وجو و فهرست اولیه را مشخص کن."})
 }
