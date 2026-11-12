@@ -4,7 +4,6 @@ on:
   push:
     branches:
       - main
-      - feature/android-native-platform
     paths:
       - "backend/edge-worker/**"
       - ".github/workflows/edge-api.yml"

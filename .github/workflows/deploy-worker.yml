@@ -3,7 +3,7 @@ name: Deploy ResearchMate Worker
 on:
   push:
     branches:
-      - feature/android-native-platform
+      - main
     paths:
       - "backend/edge-worker/**"
       - ".github/workflows/deploy-worker.yml"

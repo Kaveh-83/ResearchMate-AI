@@ -3,7 +3,7 @@ name: Android debug APK
 on:
   push:
     branches:
-      - feature/android-native-platform
+      - main
     paths:
       - "android/**"
       - ".github/workflows/android-apk.yml"
