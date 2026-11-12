@@ -33,5 +33,5 @@
         android:fillColor="#16C7B2"
         android:pathData="M27,30 L30,30 L30,34 L27,34 Z M28,31 L39,31 L39,34 L28,34 Z M38,28 L41,28 L41,36 L38,36 Z" />
     <circle android:fillColor="#16C7B2" android:centerX="28.5" android:centerY="32" android:radius="4dp" />
-    <circle android:fillColor="#16C7B2" android:centerX="39.5" android:centerY="32" android:radius="4" />
+    <circle android:fillColor="#16C7B2" android:centerX="39.5" android:centerY="32" android:radius="4dp" />
 </vector>
