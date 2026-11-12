@@ -12,6 +12,7 @@ import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
+import androidx.compose.foundation.layout.weight
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.items
 import androidx.compose.foundation.shape.RoundedCornerShape
@@ -26,19 +27,22 @@ import androidx.compose.material3.OutlinedTextField
 import androidx.compose.material3.Surface
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.CompositionLocalProvider
 import androidx.compose.runtime.getValue
+import androidx.compose.runtime.key
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.rememberCoroutineScope
 import androidx.compose.runtime.saveable.rememberSaveable
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Modifier
-import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.platform.LocalLayoutDirection
-import androidx.compose.ui.unit.LayoutDirection
-import androidx.compose.runtime.CompositionLocalProvider
+import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.input.KeyboardType
+import androidx.compose.ui.unit.LayoutDirection
 import androidx.compose.ui.unit.dp
+import java.time.Year
+import java.util.Locale
 import kotlinx.coroutines.launch
 
 class MainActivity : ComponentActivity() {
@@ -62,12 +66,14 @@ class MainActivity : ComponentActivity() {
 @Composable
 private fun ResearchMateHome() {
     var selectedSection by rememberSaveable { mutableStateOf("home") }
+    var promptSeed by rememberSaveable { mutableStateOf("") }
+    var paperContextSeed by rememberSaveable { mutableStateOf("") }
 
     Column(
         modifier = Modifier
             .fillMaxSize()
             .padding(horizontal = 20.dp, vertical = 24.dp),
-        verticalArrangement = Arrangement.spacedBy(18.dp),
+        verticalArrangement = Arrangement.spacedBy(16.dp),
     ) {
         Column(verticalArrangement = Arrangement.spacedBy(4.dp)) {
             Text(
@@ -84,90 +90,125 @@ private fun ResearchMateHome() {
 
         Row(
             modifier = Modifier.fillMaxWidth(),
-            horizontalArrangement = Arrangement.spacedBy(8.dp),
+            horizontalArrangement = Arrangement.spacedBy(6.dp),
         ) {
             SectionButton("خانه", selectedSection == "home") { selectedSection = "home" }
             SectionButton("جست‌وجو", selectedSection == "search") { selectedSection = "search" }
+            SectionButton("پرامپت", selectedSection == "prompt") {
+                promptSeed = ""
+                paperContextSeed = ""
+                selectedSection = "prompt"
+            }
             SectionButton("پروژه‌ها", selectedSection == "projects") { selectedSection = "projects" }
         }
 
         when (selectedSection) {
-            "search" -> LiteratureSearchScreen()
+            "search" -> LiteratureSearchScreen(
+                onCreatePrompt = { title, metadata ->
+                    promptSeed = title
+                    paperContextSeed = metadata
+                    selectedSection = "prompt"
+                },
+            )
+            "prompt" -> key(promptSeed + paperContextSeed) {
+                PromptStudioScreen(
+                    initialTopic = promptSeed,
+                    initialPaperContext = paperContextSeed,
+                )
+            }
             "projects" -> PlaceholderPanel(
                 title = "پروژه‌های پژوهشی",
-                description = "پروژه‌ها و مقاله‌های ذخیره‌شده در حافظه محلی گوشی نگهداری خواهند شد.",
+                description = "مدیریت و ذخیره دائمی پروژه‌ها در فاز بعدی با پایگاه داده محلی اضافه می‌شود. این صفحه فعلاً محل نگهداری پروژه‌ها نیست.",
             )
-            else -> LazyColumn(
-                contentPadding = PaddingValues(bottom = 24.dp),
-                verticalArrangement = Arrangement.spacedBy(12.dp),
-            ) {
-                item {
-                    Card(
-                        shape = RoundedCornerShape(20.dp),
-                        colors = CardDefaults.cardColors(
-                            containerColor = MaterialTheme.colorScheme.primaryContainer,
-                        ),
-                        modifier = Modifier.fillMaxWidth(),
-                    ) {
-                        Column(
-                            modifier = Modifier.padding(18.dp),
-                            verticalArrangement = Arrangement.spacedBy(8.dp),
-                        ) {
-                            Text(
-                                text = "فضای پژوهش هوشمند",
-                                style = MaterialTheme.typography.titleLarge,
-                                fontWeight = FontWeight.SemiBold,
-                            )
-                            Text(
-                                text = "جست‌وجو، بررسی و سازمان‌دهی مقاله‌ها و ساخت گزارش‌های علمی در یک محیط یکپارچه.",
-                                style = MaterialTheme.typography.bodyMedium,
-                            )
-                        }
-                    }
-                }
-                item {
-                    FeatureCard(
-                        title = "جست‌وجوی مقالات",
-                        description = "جست‌وجوی زنده در منابع علمی و دریافت اطلاعات کتاب‌شناختی مقالات دسترسی‌آزاد.",
-                        action = "شروع جست‌وجو",
-                        onClick = { selectedSection = "search" },
-                    )
-                }
-                item {
-                    FeatureCard(
-                        title = "سازنده پرامپت پژوهشی",
-                        description = "ساخت دستورهای دقیق برای تحلیل مقاله، مقایسه مطالعات و نگارش مرور علمی.",
-                        action = "در مرحله توسعه",
-                        onClick = { },
-                    )
-                }
-                item {
-                    FeatureCard(
-                        title = "کتابخانه و پروژه‌ها",
-                        description = "نگهداری مقاله‌ها و نتایج روی دستگاه، همراه با دسترسی آفلاین.",
-                        action = "مشاهده پروژه‌ها",
-                        onClick = { selectedSection = "projects" },
-                    )
-                }
-                item {
-                    Spacer(modifier = Modifier.height(4.dp))
-                    Text(
-                        text = "نسخه آزمایشی · 0.3.0",
-                        style = MaterialTheme.typography.labelSmall,
-                        color = MaterialTheme.colorScheme.onSurfaceVariant,
-                    )
-                }
-            }
+            else -> HomeScreen(
+                onSearch = { selectedSection = "search" },
+                onPrompt = {
+                    promptSeed = ""
+                    paperContextSeed = ""
+                    selectedSection = "prompt"
+                },
+                onProjects = { selectedSection = "projects" },
+            )
         }
     }
 }
 
 @Composable
-private fun LiteratureSearchScreen() {
+private fun HomeScreen(
+    onSearch: () -> Unit,
+    onPrompt: () -> Unit,
+    onProjects: () -> Unit,
+) {
+    LazyColumn(
+        contentPadding = PaddingValues(bottom = 24.dp),
+        verticalArrangement = Arrangement.spacedBy(12.dp),
+    ) {
+        item {
+            Card(
+                shape = RoundedCornerShape(20.dp),
+                colors = CardDefaults.cardColors(
+                    containerColor = MaterialTheme.colorScheme.primaryContainer,
+                ),
+                modifier = Modifier.fillMaxWidth(),
+            ) {
+                Column(
+                    modifier = Modifier.padding(18.dp),
+                    verticalArrangement = Arrangement.spacedBy(8.dp),
+                ) {
+                    Text(
+                        text = "فضای پژوهش هوشمند",
+                        style = MaterialTheme.typography.titleLarge,
+                        fontWeight = FontWeight.SemiBold,
+                    )
+                    Text(
+                        text = "از کشف مقاله تا طراحی پروتکل پژوهش و آماده‌سازی دستور تحلیل علمی.",
+                        style = MaterialTheme.typography.bodyMedium,
+                    )
+                }
+            }
+        }
+        item {
+            FeatureCard(
+                title = "جست‌وجوی مقالات",
+                description = "جست‌وجوی آنلاین در OpenAlex و مشاهده DOI، تعداد استناد، نوع مقاله و رده استنادی تقریبی.",
+                action = "شروع جست‌وجو",
+                onClick = onSearch,
+            )
+        }
+        item {
+            FeatureCard(
+                title = "سازنده پرامپت پژوهشی",
+                description = "تولید دستور کامل برای تحلیل مقاله، مرور انتقادی، مقایسه مطالعات، استخراج شکاف پژوهشی و نگارش گزارش.",
+                action = "ساخت پرامپت",
+                onClick = onPrompt,
+            )
+        }
+        item {
+            FeatureCard(
+                title = "پروژه‌ها و کتابخانه",
+                description = "زیرساخت ذخیره دائمی، واردکردن PDF و کتابخانه آفلاین هنوز در حال توسعه است.",
+                action = "مشاهده وضعیت",
+                onClick = onProjects,
+            )
+        }
+        item {
+            Text(
+                text = "نسخه آزمایشی · 0.4.0",
+                style = MaterialTheme.typography.labelSmall,
+                color = MaterialTheme.colorScheme.onSurfaceVariant,
+            )
+        }
+    }
+}
+
+@Composable
+private fun LiteratureSearchScreen(
+    onCreatePrompt: (String, String) -> Unit,
+) {
     val apiBaseUrl = BuildConfig.API_BASE_URL
     var query by rememberSaveable { mutableStateOf("") }
     var yearFrom by rememberSaveable { mutableStateOf("2021") }
-    var yearTo by rememberSaveable { mutableStateOf("2026") }
+    var yearTo by rememberSaveable { mutableStateOf(Year.now().value.toString()) }
     var results by remember { mutableStateOf<List<LiteratureWork>>(emptyList()) }
     var isLoading by remember { mutableStateOf(false) }
     var errorMessage by remember { mutableStateOf<String?>(null) }
@@ -178,13 +219,13 @@ private fun LiteratureSearchScreen() {
         modifier = Modifier.fillMaxSize(),
         verticalArrangement = Arrangement.spacedBy(10.dp),
     ) {
-        Text("جست‌وجوی مقالات علمی", style = MaterialTheme.typography.titleLarge, fontWeight = FontWeight.Bold)
         Text(
-            if (apiBaseUrl.isBlank()) {
-                "جست‌وجوی آنلاین پس از فعال‌شدن سرویس مرکزی در دسترس قرار می‌گیرد. نیازی به تنظیم سرور توسط کاربر نیست."
-            } else {
-                "آدرس سرویس پیکربندی شده است؛ وضعیت اتصال هنگام جست‌وجو بررسی می‌شود."
-            },
+            "جست‌وجوی مقالات علمی",
+            style = MaterialTheme.typography.titleLarge,
+            fontWeight = FontWeight.Bold,
+        )
+        Text(
+            "منبع فراداده: OpenAlex · فقط مقاله‌ها و مقالات مروری دسترسی‌آزاد",
             style = MaterialTheme.typography.bodySmall,
             color = MaterialTheme.colorScheme.onSurfaceVariant,
         )
@@ -220,31 +261,35 @@ private fun LiteratureSearchScreen() {
                 results = emptyList()
                 resultCount = null
                 val base = apiBaseUrl.trim().trimEnd('/')
-                if (base.isBlank() || !base.startsWith("https://")) {
-                    errorMessage = "سرویس آنلاین این نسخه هنوز پیکربندی نشده است. این بخش پس از راه‌اندازی سرور فعال می‌شود."
-                } else if (query.trim().length < 2) {
-                    errorMessage = "حداقل دو نویسه برای جست‌وجو وارد کن."
-                } else if (yearFrom.length != 4 || yearTo.length != 4 || yearFrom.toInt() > yearTo.toInt()) {
-                    errorMessage = "بازه سال انتشار معتبر نیست."
-                } else {
-                    isLoading = true
-                    scope.launch {
-                        try {
-                            val response = LiteratureRepository.search(
-                                baseUrl = base,
-                                query = query.trim(),
-                                yearFrom = yearFrom.toInt(),
-                                yearTo = yearTo.toInt(),
-                            )
-                            results = response.works
-                            resultCount = response.totalCount
-                            if (response.works.isEmpty()) {
-                                errorMessage = "مقاله‌ای مطابق این جست‌وجو پیدا نشد."
+                val from = yearFrom.toIntOrNull()
+                val to = yearTo.toIntOrNull()
+                when {
+                    base.isBlank() || !base.startsWith("https://") ->
+                        errorMessage = "سرویس آنلاین این نسخه پیکربندی نشده است."
+                    query.trim().length < 2 ->
+                        errorMessage = "حداقل دو نویسه برای جست‌وجو وارد کن."
+                    from == null || to == null || from > to ->
+                        errorMessage = "بازه سال انتشار معتبر نیست."
+                    else -> {
+                        isLoading = true
+                        scope.launch {
+                            try {
+                                val response = LiteratureRepository.search(
+                                    baseUrl = base,
+                                    query = query.trim(),
+                                    yearFrom = from,
+                                    yearTo = to,
+                                )
+                                results = response.works
+                                resultCount = response.totalCount
+                                if (response.works.isEmpty()) {
+                                    errorMessage = "مقاله‌ای مطابق این جست‌وجو پیدا نشد."
+                                }
+                            } catch (error: Exception) {
+                                errorMessage = error.message ?: "خطای نامشخص در ارتباط با سرور."
+                            } finally {
+                                isLoading = false
                             }
-                        } catch (error: Exception) {
-                            errorMessage = error.message ?: "خطای نامشخص در ارتباط با سرور."
-                        } finally {
-                            isLoading = false
                         }
                     }
                 }
@@ -262,29 +307,64 @@ private fun LiteratureSearchScreen() {
             }
         }
 
+        Card(
+            modifier = Modifier.fillMaxWidth(),
+            shape = RoundedCornerShape(12.dp),
+        ) {
+            Text(
+                text = "توضیح سطح: تعداد استناد و استناد سالانه از داده‌های OpenAlex نمایش داده می‌شوند. رده «کم تا بسیار بالا» فقط شاخص استنادی تقریبی است؛ کیفیت علمی یا رتبه مجله Q1 تا Q4 را اثبات نمی‌کند.",
+                modifier = Modifier.padding(12.dp),
+                style = MaterialTheme.typography.bodySmall,
+                color = MaterialTheme.colorScheme.onSurfaceVariant,
+            )
+        }
+
         if (resultCount != null) {
-            Text("تعداد نتایج در صفحه فعلی: ${results.size} · تعداد کل تقریبی: ${resultCount}")
+            Text("نتایج این صفحه: ${results.size} · تعداد کل اعلام‌شده: $resultCount")
         }
         errorMessage?.let {
             Text(it, color = MaterialTheme.colorScheme.error, style = MaterialTheme.typography.bodySmall)
         }
         LazyColumn(
-            modifier = Modifier.weight(1f, fill = false),
+            modifier = Modifier.weight(1f),
             verticalArrangement = Arrangement.spacedBy(10.dp),
         ) {
             items(results, key = { it.id }) { work ->
-                LiteratureWorkCard(work)
+                LiteratureWorkCard(work = work) { title, metadata ->
+                    onCreatePrompt(title, metadata)
+                }
             }
         }
     }
 }
 
 @Composable
-private fun LiteratureWorkCard(work: LiteratureWork) {
+private fun LiteratureWorkCard(
+    work: LiteratureWork,
+    onCreatePrompt: (String, String) -> Unit,
+) {
+    val currentYear = Year.now().value
+    val ageYears = work.year?.let { (currentYear - it + 1).coerceAtLeast(1) } ?: 1
+    val citationsPerYear = work.citationCount.toDouble() / ageYears
+    val citationLevel = when {
+        work.citationCount == 0 && ageYears <= 2 -> "تازه / بدون استناد ثبت‌شده"
+        work.citationCount == 0 -> "بدون استناد ثبت‌شده"
+        citationsPerYear < 1.0 -> "کم"
+        citationsPerYear < 5.0 -> "متوسط"
+        citationsPerYear < 20.0 -> "بالا"
+        else -> "بسیار بالا"
+    }
+    val typeLabel = when (work.publicationType.lowercase(Locale.ROOT)) {
+        "article" -> "مقاله پژوهشی"
+        "review" -> "مقاله مروری"
+        "preprint" -> "پیش‌چاپ"
+        else -> work.publicationType.ifBlank { "نوع سند نامشخص" }
+    }
+
     Card(modifier = Modifier.fillMaxWidth(), shape = RoundedCornerShape(14.dp)) {
         Column(
             modifier = Modifier.padding(14.dp),
-            verticalArrangement = Arrangement.spacedBy(6.dp),
+            verticalArrangement = Arrangement.spacedBy(7.dp),
         ) {
             Text(work.title, style = MaterialTheme.typography.titleMedium, fontWeight = FontWeight.SemiBold)
             Text(
@@ -292,15 +372,63 @@ private fun LiteratureWorkCard(work: LiteratureWork) {
                 style = MaterialTheme.typography.bodySmall,
             )
             Text(
-                listOfNotNull(work.year?.toString(), work.journal, "استناد: ${work.citationCount}").joinToString(" · "),
+                listOfNotNull(work.year?.toString(), work.journal, typeLabel).joinToString(" · "),
                 style = MaterialTheme.typography.labelSmall,
                 color = MaterialTheme.colorScheme.onSurfaceVariant,
             )
+            Text(
+                "استنادهای ثبت‌شده: ${work.citationCount}  |  میانگین تقریبی: ${String.format(Locale.US, "%.1f", citationsPerYear)} استناد در سال",
+                style = MaterialTheme.typography.bodyMedium,
+                fontWeight = FontWeight.Medium,
+            )
+            Text(
+                "سطح استنادی تقریبی: $citationLevel",
+                style = MaterialTheme.typography.bodyMedium,
+                color = MaterialTheme.colorScheme.primary,
+                fontWeight = FontWeight.SemiBold,
+            )
             if (work.doi.isNotBlank()) {
-                Text("DOI: ${work.doi}", style = MaterialTheme.typography.bodySmall)
+                CompositionLocalProvider(LocalLayoutDirection provides LayoutDirection.Ltr) {
+                    Text("DOI: ${work.doi}", style = MaterialTheme.typography.bodySmall)
+                }
+            }
+            if (work.abstractText.isNotBlank()) {
+                Text(
+                    "چکیده: ${work.abstractText.take(380)}${if (work.abstractText.length > 380) "…" else ""}",
+                    style = MaterialTheme.typography.bodySmall,
+                )
+            } else {
+                Text(
+                    "چکیده در فراداده این رکورد موجود نیست.",
+                    style = MaterialTheme.typography.bodySmall,
+                    color = MaterialTheme.colorScheme.onSurfaceVariant,
+                )
             }
             if (work.pdfUrl.isNotBlank()) {
-                Text("نسخه دسترسی‌آزاد: ${work.pdfUrl}", style = MaterialTheme.typography.bodySmall)
+                CompositionLocalProvider(LocalLayoutDirection provides LayoutDirection.Ltr) {
+                    Text("نسخه دسترسی‌آزاد: ${work.pdfUrl}", style = MaterialTheme.typography.bodySmall)
+                }
+            }
+            OutlinedButton(
+                onClick = {
+                    val metadata = buildString {
+                        appendLine("عنوان: ${work.title}")
+                        appendLine("نویسندگان: ${work.authors}")
+                        appendLine("سال انتشار: ${work.year ?: "نامشخص"}")
+                        appendLine("نشریه: ${work.journal.ifBlank { "نامشخص" }}")
+                        appendLine("نوع سند: $typeLabel")
+                        appendLine("تعداد استناد ثبت‌شده در OpenAlex: ${work.citationCount}")
+                        appendLine("استناد تقریبی سالانه: ${String.format(Locale.US, "%.1f", citationsPerYear)}")
+                        appendLine("رده استنادی تقریبی: $citationLevel")
+                        appendLine("DOI: ${work.doi.ifBlank { "ثبت نشده" }}")
+                        appendLine("لینک نسخه دسترسی‌آزاد: ${work.pdfUrl.ifBlank { "ثبت نشده" }}")
+                        appendLine("چکیده: ${work.abstractText.ifBlank { "در دسترس نیست" }}")
+                    }
+                    onCreatePrompt(work.title, metadata)
+                },
+                modifier = Modifier.fillMaxWidth(),
+            ) {
+                Text("ساخت پرامپت تحلیل این مقاله")
             }
         }
     }
@@ -308,8 +436,18 @@ private fun LiteratureWorkCard(work: LiteratureWork) {
 
 @Composable
 private fun SectionButton(label: String, selected: Boolean, onClick: () -> Unit) {
-    if (selected) Button(onClick = onClick) { Text(label) }
-    else OutlinedButton(onClick = onClick) { Text(label) }
+    if (selected) {
+        Button(onClick = onClick, contentPadding = PaddingValues(horizontal = 10.dp, vertical = 8.dp)) {
+            Text(label)
+        }
+    } else {
+        OutlinedButton(
+            onClick = onClick,
+            contentPadding = PaddingValues(horizontal = 10.dp, vertical = 8.dp),
+        ) {
+            Text(label)
+        }
+    }
 }
 
 @Composable

@@ -14,6 +14,8 @@ data class LiteratureWork(
     val citationCount: Int,
     val doi: String,
     val pdfUrl: String,
+    val abstractText: String,
+    val publicationType: String,
 )
 
 data class LiteratureSearchResponse(
@@ -94,6 +96,8 @@ object LiteratureRepository {
                                 citationCount = item.optInt("cited_by_count", 0),
                                 doi = item.optString("doi").orEmpty(),
                                 pdfUrl = bestLocation?.optString("pdf_url").orEmpty(),
+                                abstractText = reconstructAbstract(item.optJSONObject("abstract_inverted_index")),
+                                publicationType = item.optString("type").orEmpty(),
                             ),
                         )
                     }
@@ -108,4 +112,21 @@ object LiteratureRepository {
             connection.disconnect()
         }
     }
+}
+
+private fun reconstructAbstract(invertedIndex: JSONObject?): String {
+    if (invertedIndex == null) return ""
+    val wordsByPosition = sortedMapOf<Int, String>()
+    val keys = invertedIndex.keys()
+    while (keys.hasNext()) {
+        val word = keys.next()
+        val positions = invertedIndex.optJSONArray(word) ?: continue
+        for (index in 0 until positions.length()) {
+            val position = positions.optInt(index, -1)
+            if (position >= 0 && position !in wordsByPosition) {
+                wordsByPosition[position] = word
+            }
+        }
+    }
+    return wordsByPosition.values.joinToString(" ").replace(Regex("\\s+"), " ").trim()
 }

@@ -1,76 +1,94 @@
 # ResearchMate AI — Known Limitations, Risk Controls, and Delivery Roadmap
 
-**Status:** Current implementation audit for the native Android branch, updated 2026-11-12.
+**Status:** Native Android implementation audit, updated 2026-11-12 (v0.4.0).
 
 ## 1. Current implementation boundary
 
-The Android app is an early Kotlin + Jetpack Compose client. Version 0.2.0 builds successfully in GitHub Actions and includes a custom launcher icon, home/search/projects navigation, and an OpenAlex literature-search client.
+The native Android client is an early Kotlin + Jetpack Compose application. Version 0.4.0 adds a Persian-first prompt studio and richer OpenAlex paper cards. The current working workflow is:
 
-The Cloudflare Worker named `researchmate-ai` is deployed. Its health endpoint returns HTTP 200. Its literature-search endpoint currently returns HTTP 429 because the production Worker reports that the `OPENALEX_API_KEY` secret is not configured/visible to the deployed Worker. Therefore live literature search is not yet operational.
+1. Search OpenAlex through the central Worker.
+2. Inspect paper metadata, citation count, approximate citation activity, paper type, DOI, and abstract when available.
+3. Open the prompt studio directly from a selected paper with its metadata prefilled.
+4. Generate and copy a detailed research work order for a separate AI/research workflow.
 
-The Android app is correctly configured with the public Worker URL. The current search failure is server-side provider configuration, not an Android build or URL configuration failure.
+This is prompt preparation and literature discovery. It does **not** mean that the app has already downloaded or read the full paper, executed an AI model, synthesized evidence, or verified research gaps.
 
-Full-text analysis, AI synthesis, research-gap detection, persistent projects, and report generation are not implemented in the native app.
+The Cloudflare Worker is deployed, but the live literature provider must be rechecked independently. A successful Android build does not prove that a real literature query works. Rate limits and provider credentials remain server-side concerns.
 
-## 2. Known limitations and mitigations
+## 2. Implemented features in v0.4.0
+
+| Area | Status | Notes |
+|---|---|---|
+| Native Compose shell | Implemented | Home, search, prompt studio, projects navigation |
+| OpenAlex discovery | Implemented in client | Uses the existing HTTPS Worker |
+| Citation metadata | Implemented | Shows count supplied by OpenAlex |
+| Approximate citation band | Implemented | Citations divided by paper age; not field-normalized |
+| Paper type | Implemented | Uses provider document type when available |
+| Abstract display | Implemented when available | Reconstructed from OpenAlex inverted index |
+| Per-paper prompt | Implemented | Prefills title, metadata, DOI and abstract |
+| Detailed prompt studio | Implemented | Local deterministic prompt generation + clipboard |
+| Room database/projects | Not implemented | Projects screen remains a status placeholder |
+| Full-text/PDF analysis | Not implemented | An abstract is not a substitute for full text |
+| AI synthesis/gap analysis | Not implemented | Prompt is generated locally but not executed by an AI service |
+| Journal quartile lookup | Not implemented | Never infer Q1–Q4 from citation count |
+| Reports/export | Not implemented | Requires document and citation rendering modules |
+
+## 3. Known limitations and mitigations
 
 | Area | Current limitation | Mitigation |
 |---|---|---|
-| OpenAlex key | Production Worker does not see `OPENALEX_API_KEY`; search currently returns 429 | Add the secret to the exact `researchmate-ai` Worker production environment and redeploy |
+| OpenAlex key/quota | Provider requests may be rate-limited | Check production Worker secret and quota; preserve clear error messages |
 | Network reachability | API host or scholarly sources may be blocked or slow in some regions | Test from intended mobile/fixed networks; do not promise availability by country |
 | Shared API capacity | One public API can be abused or exhausted | Add per-device credentials, stronger quotas, monitoring, and abuse controls before public distribution |
 | OpenAlex coverage | Search metadata is not a complete index of every publisher or paper | Preserve source provenance and add sources only after validation |
+| Citation comparisons | Raw citations favor older papers and high-citation fields | Display count and age-adjusted rough band with a clear warning; add field/year normalization before any ranking |
+| Journal level | OpenAlex search response does not establish current JCR/SJR quartile | Integrate a verifiable journal-metrics provider or leave Q1–Q4 unknown |
 | Full-text access | Many papers expose only abstracts/metadata or are paywalled | Use legal OA links or user-supplied files; label evidence access clearly |
 | PDF extraction | Scanned PDFs, equations, tables, and figures can extract incorrectly | Record extraction quality and add OCR as a separate stage |
 | AI provider limits | Free model quotas and regional restrictions can interrupt work | Use provider adapters, explicit quotas, and no-AI fallbacks |
 | Scientific reliability | Models can misread units, conditions, or results | Require evidence-linked claims and uncertainty labels |
 | Local storage | Persistent Room database is not implemented | Add Room and explicit storage management |
 | Privacy | Remote processing discloses document contents to the provider | Keep files local by default and obtain explicit consent before uploads |
-| Export quality | RTL text, equations, tables, and citations need viewer testing | Validate PDF/DOCX/XLSX outputs on real devices |
-
-## 3. Architecture requirements before public sharing
-
-1. Keep provider secrets on the server, never in the APK or repository.
-2. Add per-install abuse controls before broad public distribution.
-3. Keep local files and project data on-device by default.
-4. Obtain explicit consent before remote document processing.
-5. Test actual connectivity from Iranian mobile and fixed networks before claiming regional availability.
-6. Verify the live search endpoint after the OpenAlex secret is configured.
+| Export quality | RTL text, equations, tables, and citations need viewer testing | Validate PDF/DOCX outputs on real devices |
 
 ## 4. Delivery roadmap
 
-### Phase A — Foundation (partially complete)
+### Phase A — Discovery + prompt foundation
 - Native Compose shell and CI APK build: complete.
-- Custom app icon: complete.
-- Worker deployment and health endpoint: complete.
-- OpenAlex provider secret and live search: blocked on production Cloudflare secret configuration.
-- Physical-device and target-network smoke tests: pending.
+- OpenAlex paper search and metadata cards: implemented.
+- Per-paper citation count and approximate citations-per-year band: implemented.
+- Per-paper prompt prefill: implemented.
+- Detailed local prompt studio and copy action: implemented.
+- Formal quality metrics and journal quartile verification: pending.
 
-### Phase B — Native app experience
-- Room database and persistent projects/library.
+### Phase B — Local research workspace
+- Room database for projects, saved papers, tags, notes, and prompt history.
+- Search pagination and saved-paper records.
 - PDF import using Android Storage Access Framework.
-- Search pagination, saved-paper records, and source provenance.
-- Prompt Studio parity and local exports.
+- Local file storage and reproducible project snapshots.
 
 ### Phase C — Full-text and evidence extraction
-- Legal OA full-text retrieval.
+- Legal OA full-text retrieval and license/access checks.
 - Local PDF/text extraction and page-level evidence.
 - OCR for scanned documents with extraction-quality reporting.
+- Structured extraction of methods, materials, test conditions, numerical results, and limitations.
 
 ### Phase D — AI analysis and synthesis
 - Provider adapters and explicit model selection.
 - Consent before remote document processing.
-- Evidence-linked methods/results extraction and candidate research gaps.
+- Evidence-linked per-paper analysis, cross-paper comparison, and candidate gap assessment.
+- A no-AI export path and transparent partial-result states.
 
 ### Phase E — Reporting and release
 - PDF/DOCX and evidence-matrix exports.
+- Verified citation formatting and reference cross-check.
 - Regression, privacy, and low-memory tests.
 - Target-network testing.
 - Signed release APK and release notes.
 
 ## 5. Release gates
 
-The app is not ready for general distribution until:
+The app is not ready for broad public distribution until:
 - The APK is installed and launched on a physical device.
 - The API is reachable from intended user networks.
 - Literature search returns real records successfully.
