@@ -43,7 +43,7 @@ object ResearchDocumentExport {
             val normalized = markdown
                 .replace(Regex("^\\s*[-*]\\s+", RegexOption.MULTILINE), "• ")
                 .replace(Regex("^#{1,6}\\s*", RegexOption.MULTILINE), "")
-                .replace(Regex("\\*\\*(.*?)\\*\\*"), "$1")
+                .replace(Regex("\\*\\*(.*?)\\*\\*"), "\\$1")
                 .replace(Regex("(?m)^\\s*---+\\s*$"), "────────────────────────────────")
             val titleLayout = StaticLayout.Builder.obtain(title.ifBlank { "گزارش پژوهشی" }, 0,
                 title.ifBlank { "گزارش پژوهشی" }.length, titlePaint, contentWidth)
