@@ -1,52 +1,115 @@
-# ResearchMate Edge API
+# ResearchMate Edge API — v0.7
 
-A lightweight Cloudflare Worker API for the native ResearchMate AI app.
+Cloudflare Worker API for the native ResearchMate AI app. Version 0.7 adds a provider-based academic search endpoint.
 
-## Deployment status
+## Production service
 
 - Worker: `researchmate-ai`
 - Public base URL: `https://researchmate-ai.kavehjafari710.workers.dev`
-- Deployment: managed by the GitHub Actions workflow `.github/workflows/deploy-worker.yml`
-- Health endpoint: verified with HTTP 200.
-- Literature search: currently returns HTTP 429 because the production Worker does not yet expose the required `OPENALEX_API_KEY` secret. Add that secret to the `researchmate-ai` Worker before enabling live search.
+- Health: `GET /v1/health`
+- Legacy compatibility: `GET /v1/literature/search` (OpenAlex metadata)
+- New multi-provider search: `POST /v2/academic-search`
 
-The Streamlit app is maintained separately. Android builds receive the API base URL through the Gradle property `API_BASE_URL`; ordinary app users do not need a Cloudflare account or a server URL.
+## Providers
 
-## Routes
+| Provider ID | API | Purpose |
+|---|---|---|
+| `openalex` | OpenAlex Works API | Broad multidisciplinary metadata, citations, OA locations, source indicators |
+| `crossref` | Crossref REST API | DOI registration and publisher-deposited metadata |
+| `semantic_scholar` | Semantic Scholar Graph API | Scholarly graph, fields of study, citations, OA PDF metadata |
+| `europe_pmc` | Europe PMC REST API | Biomedical/life-science search, abstracts, MeSH and full-text links |
+| `pubmed` | NCBI E-utilities | PubMed records and publication metadata |
+| `arxiv` | arXiv Atom API | Preprint discovery for arXiv subject categories |
 
-- `GET /v1/health`
-- `GET /v1/literature/search?q=...&year_from=...&year_to=...&limit=...`
+The app can ask for automatic provider routing by discipline or provide a manual provider list. A provider failure is isolated and returned in `providerStatus`; successful sources still return results.
 
-The search endpoint queries OpenAlex and filters for open-access journal articles and reviews. It returns bibliographic metadata and open-access PDF links where available. It does not claim every result has a downloadable full text.
+## Request example
 
-## Required Cloudflare secret
+```http
+POST /v2/academic-search
+Content-Type: application/json
+```
 
-The Worker reads the OpenAlex key from a server-side secret named exactly:
+```json
+{
+  "query": "high entropy alloy coatings",
+  "yearFrom": 2020,
+  "yearTo": 2026,
+  "profile": "materials",
+  "providers": [],
+  "author": "",
+  "journal": "",
+  "publisher": "",
+  "documentType": "",
+  "accessMode": "all",
+  "minCitations": null,
+  "sort": "relevance",
+  "page": 1,
+  "pageSize": 20
+}
+```
 
-`OPENALEX_API_KEY`
+Set `providers` to an array of provider IDs to override profile routing. An empty array activates routing for `profile`.
 
-To add or verify it:
+## Response behavior
 
-1. Open the [Cloudflare dashboard](https://dash.cloudflare.com/).
-2. Go to **Workers & Pages** and select the Worker named **researchmate-ai**.
-3. Open **Settings** → **Variables and Secrets**.
-4. Add a **Secret** named `OPENALEX_API_KEY` and paste the OpenAlex API key as its value.
-5. Save/deploy the Worker, then test the search route below.
+The `works` array is normalized across sources and deduplicated primarily by DOI. Provider identifiers and source names are retained.
 
-Make sure the secret belongs to this exact Worker and the production environment. A secret stored on a different Worker or under a different name is not available to this deployment.
+- `citationCounts` is keyed by provider. Values are not summed across sources.
+- `accessStatus` is `open`, `restricted`, or `unknown`.
+- `open` means that a source returned a full-text/open-access URL or an explicit OA indicator.
+- `restricted` means a source explicitly reports no OA status/availability (not proof that every version is paywalled).
+- `unknown` means the provider metadata is insufficient to establish access.
+- `journalMetrics` currently reports OpenAlex source H-index and two-year mean citedness when those values are included in the work's source metadata. It does not report JCR Impact Factor, CiteScore or Q-rankings.
+- `providerStatus` includes provider ID, state, count, latency and a bounded error message.
+- `nextPage` is an app-level next-page hint. Each provider currently derives page/offset independently from the same page number; providers with cursor-only deep paging may require separate continuation work.
 
-Do not put the key in the APK, source code, README, or any committed file. The Cloudflare deployment credentials used by GitHub Actions are separate from this OpenAlex provider secret.
+## Filters
 
-## Security and usage controls
+The request supports:
+- date range;
+- subject profile;
+- explicit provider list;
+- author, journal, publisher;
+- document type;
+- access mode;
+- minimum citation count;
+- relevance/newest/citation sort;
+- page and page size.
 
-- Search requests are throttled to approximately 15 requests per minute per source IP, per Cloudflare location.
-- Cloudflare's Worker Rate Limiting binding is approximate and location-local, not a strict global quota or authentication system.
-- Provider secrets are read only from Cloudflare Worker secrets; no API keys are embedded in the APK or repository.
-- Query length is bounded, result count is capped at 50, and upstream requests time out after 20 seconds.
-- CORS is closed by default for browser origins. Native Android requests without an Origin header are supported.
-- Do not log authorization headers, personal data, or uploaded paper contents.
+Some filters are applied as post-retrieval filters so their semantics are consistent across providers. Provider-native search syntax is not identical; this version does not promise full Boolean query parity for every source.
 
-The IP throttle is a first abuse barrier, not a complete anti-abuse system. Before scaling beyond a small pilot, add anonymous installation credentials with server-side issuance/rotation and stronger per-install quotas, monitoring, and a documented privacy policy. IP-based throttling can affect multiple users sharing a mobile carrier NAT.
+## Required bindings and optional provider secrets
+
+Required Cloudflare bindings:
+- `SEARCH_RATE_LIMITER` — rate-limits each client IP.
+
+Optional secrets:
+- `OPENALEX_API_KEY` — OpenAlex free key; allows a larger daily budget and cursor paging under OpenAlex terms.
+- `SEMANTIC_SCHOLAR_API_KEY` — Semantic Scholar key for higher or more reliable provider quota where granted.
+- `NCBI_API_KEY` — NCBI E-utilities key (default rate ceiling is lower without a key).
+- `CROSSREF_MAILTO` — contact email used for Crossref polite-pool requests. Configure as a non-secret Worker variable if desired.
+
+All provider keys stay on Cloudflare and are never included in Android. The current adapters can return results without most keys, but public anonymous limits vary and may throttle searches.
+
+## Cost and legal boundaries
+
+- No commercial index is activated by default.
+- Do not add a pay-per-use provider without an explicit owner decision and spending controls.
+- Subscription article metadata can be discoverable even if full text is not available.
+- The Worker never attempts to bypass publisher paywalls, credentials, DRM or access restrictions.
+- The Worker does not download subscription PDFs.
+- A DOI/publisher link is not proof of app entitlement.
+- Do not infer Q-rank, Impact Factor or CiteScore from a journal name.
+
+## Security and reliability
+
+- Query body is capped, query length bounded, provider result count capped, and requests have timeouts.
+- Calls to providers run independently. One provider's timeout or HTTP 429 does not cancel all other providers.
+- No raw provider keys are logged or returned.
+- IP-based throttling is approximate and location-local; it is not a global authentication or quota system.
+- Search should be tested across networks before being advertised as available in every country.
+- Search responses use `Cache-Control: no-store` until a compliant cache policy is implemented.
 
 ## Local development
 
@@ -58,20 +121,21 @@ npm run typecheck
 npm run dev
 ```
 
-## Deployment and verification
+## Deployment
 
-A push to `feature/android-native-platform` that changes `backend/edge-worker/**` or the deployment workflow triggers GitHub Actions. The workflow uses the repository secrets:
-
+The workflow `.github/workflows/deploy-worker.yml` deploys the Worker after a change on `main` to `backend/edge-worker/**`. It uses repository secrets:
 - `CLOUDFLARE_API_TOKEN`
 - `CLOUDFLARE_ACCOUNT_ID`
 
-Check the deployed service:
+After deployment, smoke-test:
+- `GET /v1/health`
+- `POST /v2/academic-search` with a general topic and a biomedical topic.
 
-- [Health](https://researchmate-ai.kavehjafari710.workers.dev/v1/health)
-- [Sample literature search](https://researchmate-ai.kavehjafari710.workers.dev/v1/literature/search?q=high%20entropy%20alloy&year_from=2021&year_to=2026&limit=5)
+## Current limitations
 
-After adding `OPENALEX_API_KEY`, test both endpoints from at least one Iranian mobile network and one fixed-line network. A successful deployment does not prove regional reachability.
-
-## Free-tier boundary
-
-Cloudflare Workers Free has platform quotas that may change. They are not a promise of unlimited use. This Worker proxies lightweight scholarly metadata; PDF parsing, OCR, large research jobs, and AI synthesis are outside its current scope.
+- OpenAIRE Graph and DOAJ adapters are not part of the v0.7 first build; they are planned after API response shape and quota testing.
+- Subscription metadata coverage depends on the metadata source and its publisher deposits. This is not a complete copy of Scopus/Web of Science.
+- Journal metric coverage is limited to available OpenAlex source summary data.
+- Crossref abstract metadata may contain publisher-supplied content; preserve provider attribution.
+- arXiv feed parsing is deliberately limited to the metadata fields currently exposed by its Atom API.
+- DOI/title deduplication uses a conservative fallback; false merges remain possible for common titles.
