@@ -39,7 +39,8 @@ fun PromptStudioScreen(initialTopic:String,initialPaperContext:String,initialPro
  var constraints by rememberSaveable{mutableStateOf("هیچ داده، DOI، منبع یا نتیجه‌ای جعل نشود.")}
  var papers by rememberSaveable(initialProjectId,initialPaperContext){mutableStateOf(initialPaperContext)}
  var target by rememberSaveable(initialProjectId){mutableStateOf(90f)}
- var rounds by rememberSaveable(initialProjectId){mutableStateOf(5f)}\n var finalDraft by rememberSaveable(initialProjectId){mutableStateOf("")}
+ var rounds by rememberSaveable(initialProjectId){mutableStateOf(5f)}
+ var finalDraft by rememberSaveable(initialProjectId){mutableStateOf("")}
  var menu by remember{mutableStateOf(false)};var message by remember{mutableStateOf<String?>(null)}
  val a=from.toIntOrNull();val b=to.toIntOrNull();val valid=a!=null&&b!=null&&a in 1800..now&&b in 1800..now&&a<=b
  val promptText=remember(topic,domain,goal,output,level,from,to,language,citation,audience,journal,length,corpus,constraints,papers,target,rounds,valid){if(!valid)"" else buildPrompt(topic,domain,goal,output,level,a!!,b!!,language,citation,audience,journal,length,corpus,constraints,papers,target.toInt(),rounds.toInt())}
