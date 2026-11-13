@@ -27,6 +27,20 @@ object ResearchExports {
         }
     }
 
+    fun risWorks(works: List<LiteratureWork>): String = works.joinToString("\n\n") { work ->
+        buildString {
+            appendLine("TY  - JOUR")
+            appendLine("TI  - " + work.title)
+            if (work.authors.isNotBlank()) work.authors.split(Regex(";|\\\\s+and\\\\s+")).forEach { appendLine("AU  - " + it.trim()) }
+            work.year?.let { appendLine("PY  - $it") }
+            if (work.journal.isNotBlank()) appendLine("JO  - " + work.journal)
+            if (work.doi.isNotBlank()) appendLine("DO  - " + work.doi)
+            if (work.landingUrl.isNotBlank()) appendLine("UR  - " + work.landingUrl)
+            if (work.abstractText.isNotBlank()) appendLine("AB  - " + work.abstractText.replace("\\n", " "))
+            appendLine("ER  -")
+        }.trimEnd()
+    }
+
     fun markdown(papers: List<ResearchPaper>, evidence: List<EvidenceRecord>): String = buildString {
         appendLine("# ResearchMate AI — Research Library")
         appendLine()
