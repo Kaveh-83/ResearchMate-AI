@@ -203,12 +203,12 @@ private fun ResearchMateHome() {
                         Text("ResearchMate AI", style = MaterialTheme.typography.titleLarge, fontWeight = FontWeight.Bold)
                         Text("دستیار هوشمند پژوهش", style = MaterialTheme.typography.labelSmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
                     }
-                    Text("0.6.0", color = MaterialTheme.colorScheme.primary, style = MaterialTheme.typography.labelLarge)
+                    Text("0.7.0", color = MaterialTheme.colorScheme.primary, style = MaterialTheme.typography.labelLarge)
                 }
             }
             AnimatedContent(page, label = "workspace-page", modifier = Modifier.weight(1f)) { target ->
                 when (target) {
-                    "search" -> SearchScreen(
+                    "search" -> AcademicSearchScreen(
                         onPrompt = { t, p -> showPrompt(t, p) },
                         onSave = { work ->
                             db.upsertPaper(work.toResearchPaper())
@@ -438,24 +438,6 @@ private fun SearchScreen(onPrompt: (String, String) -> Unit, onSave: (Literature
                 }
             }
         }
-    }
-}
-
-private fun LiteratureWork.promptText(): String {
-    val age = year?.let { (java.time.Year.now().value - it + 1).coerceAtLeast(1) } ?: 1
-    val rate = citationCount.toDouble() / age
-    return buildString {
-        appendLine("عنوان: " + title)
-        appendLine("نویسندگان: " + authors.ifBlank { "نامشخص" })
-        appendLine("سال: " + (year?.toString() ?: "نامشخص"))
-        appendLine("نشریه: " + journal.ifBlank { "نامشخص" })
-        appendLine("نوع سند: " + publicationType)
-        appendLine("استنادهای OpenAlex: " + citationCount)
-        appendLine("میانگین خام استناد سالانه: " + String.format(Locale.US, "%.1f", rate))
-        appendLine("DOI: " + doi.ifBlank { "ثبت نشده" })
-        appendLine("نسخه دسترسی‌آزاد: " + pdfUrl.ifBlank { "ثبت نشده" })
-        appendLine("چکیده: " + abstractText.ifBlank { "در فراداده موجود نیست" })
-        appendLine("توجه: تعداد استناد نه کیفیت مقاله است و نه رتبه Q مجله.")
     }
 }
 
