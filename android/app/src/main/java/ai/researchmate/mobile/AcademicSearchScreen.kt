@@ -471,7 +471,7 @@ fun AcademicSearchScreen(onPrompt: (String, String) -> Unit, onSave: (Literature
                             }
                         }
                         Row(horizontalArrangement = Arrangement.spacedBy(5.dp), verticalAlignment = Alignment.CenterVertically) {
-                            Button(onClick = { selectAllSearchResults() }, enabled = !loading && nextPage != null) {
+                            Button(onClick = { selectAllSearchResults() }, enabled = !loading && results.isNotEmpty()) {
                                 Text(if (loading) "در حال دریافت..." else "دریافت و انتخاب همه صفحه‌ها")
                             }
                             TextButton(onClick = { selected = emptySet() }) { Text("پاک‌کردن انتخاب") }
