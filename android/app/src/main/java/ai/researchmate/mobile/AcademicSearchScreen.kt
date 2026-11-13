@@ -121,6 +121,7 @@ fun AcademicSearchScreen(onPrompt: (String, String) -> Unit, onSave: (Literature
     var results by remember { mutableStateOf<List<LiteratureWork>>(emptyList()) }
     var providerStatuses by remember { mutableStateOf<List<ProviderSearchStatus>>(emptyList()) }
     var selected by remember { mutableStateOf(setOf<String>()) }
+    var searchSnapshot by remember { mutableStateOf<AcademicSearchRequest?>(null) }
     var loading by remember { mutableStateOf(false) }
     var error by remember { mutableStateOf<String?>(null) }
     var total by remember { mutableIntStateOf(0) }
@@ -148,6 +149,7 @@ fun AcademicSearchScreen(onPrompt: (String, String) -> Unit, onSave: (Literature
                 if (!append) {
                     results = emptyList()
                     selected = emptySet()
+                    searchSnapshot = null
                     providerStatuses = emptyList()
                     total = 0
                     providerTotal = 0
@@ -156,22 +158,18 @@ fun AcademicSearchScreen(onPrompt: (String, String) -> Unit, onSave: (Literature
                 }
                 scope.launch {
                     try {
-                        val request = AcademicSearchRequest(
-                            query = query.trim(),
-                            yearFrom = start,
-                            yearTo = end,
-                            profile = profile,
-                            providers = if (manualProviders) selectedProviders else emptySet(),
-                            author = author.trim(),
-                            journal = journal.trim(),
-                            publisher = publisher.trim(),
-                            documentType = documentType.trim(),
-                            accessMode = accessMode,
-                            minCitations = minCitations.toIntOrNull(),
-                            sort = sort,
-                            page = requestedPage,
-                            pageSize = 20
-                        )
+                        val request = if (append) {
+                            (searchSnapshot ?: error("جزئیات جست‌وجوی قبلی در دسترس نیست.")).copy(page = requestedPage)
+                        } else {
+                            AcademicSearchRequest(
+                                query = query.trim(), yearFrom = start, yearTo = end, profile = profile,
+                                providers = if (manualProviders) selectedProviders else emptySet(),
+                                author = author.trim(), journal = journal.trim(), publisher = publisher.trim(),
+                                documentType = documentType.trim(), accessMode = accessMode,
+                                minCitations = minCitations.toIntOrNull(), sort = sort,
+                                page = requestedPage, pageSize = 20
+                            ).also { searchSnapshot = it }
+                        }
                         val response = LiteratureRepository.searchAdvanced(baseUrl, request)
                         results = if (append) (results + response.works).distinctBy { it.id } else response.works
                         providerStatuses = response.providerStatuses
@@ -205,6 +203,11 @@ fun AcademicSearchScreen(onPrompt: (String, String) -> Unit, onSave: (Literature
 
     fun selectAllSearchResults() {
         if (loading || results.isEmpty()) return
+        val snapshot = searchSnapshot
+        if (snapshot == null) {
+            error = "برای ادامه جست‌وجو، ابتدا همین جست‌وجو را دوباره اجرا کن."
+            return
+        }
         val firstMissingPage = nextPage
         if (firstMissingPage == null) {
             selected = results.map { it.id }.toSet()
@@ -223,13 +226,8 @@ fun AcademicSearchScreen(onPrompt: (String, String) -> Unit, onSave: (Literature
             try {
                 while (cursor != null && fetchedPages < 30) {
                     kotlinx.coroutines.delay(300)
-                    val request = AcademicSearchRequest(
-                        query = query.trim(), yearFrom = fromYear.toInt(), yearTo = toYear.toInt(),
-                        profile = profile, providers = if (manualProviders) selectedProviders else emptySet(),
-                        author = author.trim(), journal = journal.trim(), publisher = publisher.trim(),
-                        documentType = documentType.trim(), accessMode = accessMode,
-                        minCitations = minCitations.toIntOrNull(), sort = sort, page = cursor, pageSize = 20
-                    )
+                    val request = snapshot.copy(page = cursor)
+
                     val response = LiteratureRepository.searchAdvanced(baseUrl, request)
                     accumulated.addAll(response.works)
                     cursor = response.nextPage
