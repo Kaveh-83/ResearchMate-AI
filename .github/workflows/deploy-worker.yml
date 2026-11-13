@@ -28,3 +28,30 @@ jobs:
           workingDirectory: backend/edge-worker
           wranglerVersion: "4.45.0"
           command: deploy
+
+      - name: Smoke-test deployed academic search API
+        shell: bash
+        run: |
+          set -euo pipefail
+          BASE="https://researchmate-ai.kavehjafari710.workers.dev"
+          for attempt in 1 2 3 4 5; do
+            if curl --fail --silent --show-error "$BASE/v1/health" -o /tmp/health.json; then
+              break
+            fi
+            sleep 3
+          done
+          curl --fail --silent --show-error \
+            -X POST "$BASE/v2/academic-search" \
+            -H "Content-Type: application/json" \
+            -d '{"query":"corrosion resistant steel","yearFrom":2020,"yearTo":2026,"profile":"materials","providers":["openalex","crossref"],"page":1,"pageSize":5,"sort":"relevance"}' \
+            -o /tmp/search.json
+          node -e '
+            const fs = require("node:fs");
+            const payload = JSON.parse(fs.readFileSync("/tmp/search.json", "utf8"));
+            if (payload.apiVersion !== "v2") throw new Error("Unexpected API version");
+            if (!Array.isArray(payload.works)) throw new Error("Missing normalized works array");
+            if (!Array.isArray(payload.providerStatus)) throw new Error("Missing provider status array");
+            if (!payload.providerStatus.some(item => item.provider === "openalex")) throw new Error("OpenAlex status was not returned");
+            if (!payload.providerStatus.some(item => item.provider === "crossref")) throw new Error("Crossref status was not returned");
+            console.log("Academic search smoke test passed:", payload.works.length, "unique works");
+          '

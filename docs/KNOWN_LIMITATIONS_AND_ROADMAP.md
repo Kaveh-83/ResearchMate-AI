@@ -1,59 +1,66 @@
-# ResearchMate AI — v0.6.0 status and roadmap
+# ResearchMate AI — v0.7.0 status and roadmap
 
-## Delivered in v0.6.0
+## Delivered in v0.7.0 search implementation
 
-- Dark-first Material 3 design and RTL navigation.
-- SQLite storage for projects, library papers, notes, tags, and evidence records.
-- Automatic one-time migration of existing v0.5 projects from SharedPreferences.
-- OpenAlex-backed open-access discovery retained.
-- Article-to-prompt flow and bulk save of selected search results.
-- PDF import using Storage Access Framework and first-page preview using Android PdfRenderer.
-- Paper detail records with notes, tags, and manually entered evidence anchors.
-- Comparison of up to four saved records.
-- Preliminary keyword frequency signals to help formulate questions from the local corpus.
-- JSON backup/restore plus CSV, BibTeX, and Markdown exports.
+- Multi-disciplinary profile-aware routing for general scholarly search and selected specialist sources.
+- Provider adapters for OpenAlex, Crossref, Semantic Scholar, Europe PMC, PubMed and arXiv.
+- Subscription/restricted bibliographic records are no longer excluded by an Open Access-only filter.
+- Separate access labels for open full-text URLs, no OA copy indicated, and unknown access.
+- Advanced search UI with year, author, journal, publisher, document type, minimum citations, access mode, sort, manual providers, and pagination.
+- DOI-first deduplication, preserving provider identifiers and source provenance.
+- Source-attributed citation counts; counts from different databases are never summed.
+- Provider-level status and errors, so partial source outages do not fail the entire search.
+- OpenAlex source H-index and two-year mean citedness displayed only when available in returned metadata.
+- v0.6 local library, projects, PDF import, notes, evidence capture and exports retained.
 
-## Explicitly not delivered yet
+## Explicit limits of this build
 
-- PDF full-text extraction, OCR, automatic table/figure extraction, and automatic evidence extraction.
-- Automatic semantic synthesis and verified research-gap detection.
-- In-app LLM inference, provider adapters, local Ollama connection, or cloud AI jobs.
-- Cloud synchronization, user accounts, sharing, and conflict resolution.
-- Full report editor with version history and PDF/DOCX publishing.
-- Search pagination and alternative scholarly-provider failover.
-- Physical-device validation on Iranian networks.
+- OpenAIRE Graph and DOAJ adapters are not yet wired into v0.7; their API shape/quota should be validated in a separate integration change.
+- Scopus, Web of Science, IEEE Xplore, ScienceDirect, SpringerLink and other subscription publisher APIs are not connected.
+- Paid JCR Impact Factor and CiteScore values are not included. No journal quartiles are inferred.
+- The system discovers metadata; it does not bypass subscriptions or download paywalled full text.
+- Access labels describe the returned metadata and are not legal entitlement determinations.
+- Provider coverage can be limited by anonymous API rate limits; optional provider keys can increase applicable limits.
+- Search queries are plain text; provider-specific Boolean syntax parity is not guaranteed.
+- Deep paging is app-level page/offset per provider, not a durable cursor for every upstream database.
+- Citation counts and source-level metrics are snapshots and can differ between providers and update dates.
+- No physical-device or Iranian-network test has yet been recorded for this release.
+- PDF text extraction, OCR, table/figure extraction, semantic synthesis, and AI model execution remain future work.
 
 ## Next priorities
 
-### v0.7 — document intelligence
-1. On-device PDF text extraction with size/page limits and source-page anchors.
-2. Extracted text review and human correction before any synthesis.
-3. Evidence matrix with structured field templates by domain.
-4. OA source/license metadata and alternate source adapters.
+### v0.7.1 — coverage and reproducibility
 
-### v0.8 — reproducible analysis
-1. Cross-paper synthesis with claim-to-source references.
-2. Contradiction and missing-variable analysis.
-3. Idea Lab improvements using confirmed extracted evidence.
-4. Search protocols, inclusion/exclusion criteria, and reproducibility logs.
+1. Validate and add OpenAIRE Graph and DOAJ adapters.
+2. Add exact-title/DOI/PMID/ORCID/ISSN lookup mode.
+3. Add query history and reproducible search snapshots (query, profile, providers, filters, timestamps and status).
+4. Improve provider-specific continuation tokens and query syntax support.
+5. Add source filter facets and a journal/ISSN explorer.
+6. Add explicit repository-version and license details where reliable data is available.
 
-### v0.9 — export and optional AI
-1. Full report editor and PDF/DOCX/CSV/BibTeX exports.
-2. A provider-neutral AI interface with explicit per-task consent.
-3. Optional local-model connector; no mandatory paid API.
-4. Usage budgets, timeouts, graceful fallbacks, and privacy controls.
+### v0.8 — journal and citation intelligence
 
-## Data safety notes
+1. Related-work graph for references and citing papers.
+2. Journal directory with verified source/year for each metric.
+3. Optional licensed integrations for JCR/CiteScore only when a valid entitlement exists.
+4. Retraction/correction data with trustworthy source labels.
+5. Saved queries and alerts.
 
-- The app migrates existing v0.5 projects into SQLite on first access. The original SharedPreferences payload is left untouched.
-- JSON backup includes project, paper, note, tag, and evidence data.
-- Backup does not include PDF bytes. It stores the URI string only; access on another phone is not guaranteed.
-- A restore merges/replaces records by their IDs and preserves unrelated records.
-- No user PDF is transmitted to the Worker in v0.6.0.
+### v0.9 — systematic review and document intelligence
 
-## Scientific integrity notes
+1. Reproducible inclusion/exclusion workflow and PRISMA-style counts.
+2. On-device PDF text extraction with page anchors and human review.
+3. Evidence matrix and controlled extraction templates by domain.
+4. Cross-paper synthesis with claim-to-source references.
+5. Optional local AI connector; no mandatory paid API.
 
-- A word-frequency signal is not a research gap.
-- Citation count is not a journal quartile, impact factor, or quality score.
+## Cost and research-integrity rules
+
+- No paid source is enabled by default.
+- No provider API keys are shipped in the APK or committed to source control.
+- Do not bypass paywalls, publisher authentication, DRM or access restrictions.
+- Citation counts stay attributed to the source and are not added together.
+- Journal metrics must include metric name, provider/source and data year.
 - A metadata-only paper is not equivalent to a reviewed full text.
-- Missing values remain missing; they must not be inferred from titles or abstracts.
+- Missing or conflicting metadata remains explicit.
+- Search result ranking is not proof of scientific quality.
