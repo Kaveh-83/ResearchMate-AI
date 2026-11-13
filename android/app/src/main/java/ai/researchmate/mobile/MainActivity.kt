@@ -116,7 +116,9 @@ private fun ResearchMateHome() {
     var projects by remember { mutableStateOf(ProjectStore.load(context)) }
     var library by remember { mutableStateOf(db.allPapers()) }
     var evidence by remember { mutableStateOf(emptyList<EvidenceRecord>()) }
-    var pendingDocumentTitle by remember { mutableStateOf("ResearchMate AI") }\n    var pendingDocumentText by remember { mutableStateOf("") }\n    var pendingSelectedWorks by remember { mutableStateOf(emptyList<LiteratureWork>()) }
+    var pendingDocumentTitle by remember { mutableStateOf("ResearchMate AI") }
+    var pendingDocumentText by remember { mutableStateOf("") }
+    var pendingSelectedWorks by remember { mutableStateOf(emptyList<LiteratureWork>()) }
 
     fun reload() {
         projects = ProjectStore.load(context)
