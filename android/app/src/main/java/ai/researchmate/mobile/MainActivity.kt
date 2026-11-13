@@ -115,7 +115,7 @@ private fun ResearchMateHome() {
     var selectedPaper by remember { mutableStateOf<ResearchPaper?>(null) }
     var projects by remember { mutableStateOf(ProjectStore.load(context)) }
     var library by remember { mutableStateOf(db.allPapers()) }
-    var evidence by remember { mutableStateOf(emptyList<EvidenceRecord>()) }
+    var evidence by remember { mutableStateOf(emptyList<EvidenceRecord>()) }\n    var pendingDocumentTitle by remember { mutableStateOf("ResearchMate AI") }\n    var pendingDocumentText by remember { mutableStateOf("") }\n    var pendingSelectedWorks by remember { mutableStateOf(emptyList<LiteratureWork>()) }
 
     fun reload() {
         projects = ProjectStore.load(context)
@@ -154,6 +154,30 @@ private fun ResearchMateHome() {
     }
     val markdownExport = rememberLauncherForActivityResult(ActivityResultContracts.CreateDocument("text/markdown")) { uri ->
         if (uri != null) writeText(context, uri, ResearchExports.markdown(db.allPapers(), db.allEvidence()))
+    }
+
+    val selectedRisExport = rememberLauncherForActivityResult(ActivityResultContracts.CreateDocument("application/x-research-info-systems")) { uri ->
+        if (uri != null) writeText(context, uri, ResearchExports.risWorks(pendingSelectedWorks))
+    }
+    val promptPdfExport = rememberLauncherForActivityResult(ActivityResultContracts.CreateDocument("application/pdf")) { uri ->
+        if (uri != null) {
+            try {
+                ResearchDocumentExport.writePdf(context.contentResolver, uri, pendingDocumentTitle, pendingDocumentText)
+                Toast.makeText(context, "فایل PDF با موفقیت ذخیره شد.", Toast.LENGTH_LONG).show()
+            } catch (e: Exception) {
+                Toast.makeText(context, "ساخت PDF ناموفق بود: " + (e.message ?: ""), Toast.LENGTH_LONG).show()
+            }
+        }
+    }
+    val promptWordExport = rememberLauncherForActivityResult(ActivityResultContracts.CreateDocument("application/vnd.openxmlformats-officedocument.wordprocessingml.document")) { uri ->
+        if (uri != null) {
+            try {
+                ResearchDocumentExport.writeDocx(context.contentResolver, uri, pendingDocumentTitle, pendingDocumentText)
+                Toast.makeText(context, "فایل Word با موفقیت ذخیره شد.", Toast.LENGTH_LONG).show()
+            } catch (e: Exception) {
+                Toast.makeText(context, "ساخت Word ناموفق بود: " + (e.message ?: ""), Toast.LENGTH_LONG).show()
+            }
+        }
     }
     val backupImport = rememberLauncherForActivityResult(ActivityResultContracts.OpenDocument()) { uri ->
         if (uri != null) {
@@ -214,6 +238,10 @@ private fun ResearchMateHome() {
                             db.upsertPaper(work.toResearchPaper())
                             reload()
                             Toast.makeText(context, "مقاله به کتابخانه افزوده شد.", Toast.LENGTH_SHORT).show()
+                        },
+                        onExportSelected = { works ->
+                            pendingSelectedWorks = works
+                            selectedRisExport.launch("researchmate-selected-papers.ris")
                         }
                     )
                     "library" -> ResearchLibraryScreen(
@@ -239,9 +267,20 @@ private fun ResearchMateHome() {
                     )
                     "prompt" -> key(topic + papersContext + projectId.orEmpty()) {
                         val old = projects.firstOrNull { it.id == projectId }
-                        PromptStudioScreen(old?.topic ?: topic, old?.paperContext ?: papersContext, old?.title.orEmpty(), old?.id) {
-                            ProjectStore.upsert(context, it); reload()
-                        }
+                        PromptStudioScreen(
+                            old?.topic ?: topic, old?.paperContext ?: papersContext, old?.title.orEmpty(), old?.id,
+                            onSaveProject = { ProjectStore.upsert(context, it); reload() },
+                            onExportPdf = { documentTitle, documentText ->
+                                pendingDocumentTitle = documentTitle
+                                pendingDocumentText = documentText
+                                promptPdfExport.launch("researchmate-${documentTitle.take(35).replace(Regex("[^\\\\p{L}\\\\p{N}]+"), "-")}.pdf")
+                            },
+                            onExportWord = { documentTitle, documentText ->
+                                pendingDocumentTitle = documentTitle
+                                pendingDocumentText = documentText
+                                promptWordExport.launch("researchmate-${documentTitle.take(35).replace(Regex("[^\\\\p{L}\\\\p{N}]+"), "-")}.docx")
+                            }
+                        )
                     }
                     "detail" -> {
                         val p = selectedPaper
