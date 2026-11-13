@@ -96,7 +96,7 @@ private val searchProviders = listOf(
 
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
-fun AcademicSearchScreen(onPrompt: (String, String) -> Unit, onSave: (LiteratureWork) -> Unit) {
+fun AcademicSearchScreen(onPrompt: (String, String) -> Unit, onSave: (LiteratureWork) -> Unit, onExportSelected: (List<LiteratureWork>) -> Unit) {
     val context = LocalContext.current
     val baseUrl = BuildConfig.API_BASE_URL
     val now = java.time.Year.now().value
@@ -200,6 +200,61 @@ fun AcademicSearchScreen(onPrompt: (String, String) -> Unit, onSave: (Literature
             "restricted" -> work.accessStatus == "restricted"
             "unknown" -> work.accessStatus == "unknown"
             else -> true
+        }
+    }
+
+    fun selectAllSearchResults() {
+        if (loading || results.isEmpty()) return
+        val firstMissingPage = nextPage
+        if (firstMissingPage == null) {
+            selected = results.map { it.id }.toSet()
+            error = if (results.size < total) {
+                "همه رکوردهای قابل‌بازیابی انتخاب شدند؛ اما تعداد اعلام‌شده از سوی منابع بیشتر است و صفحه دیگری از API در دسترس نیست."
+            } else null
+            return
+        }
+        loading = true
+        error = null
+        scope.launch {
+            val accumulated = results.toMutableList()
+            var cursor: Int? = firstMissingPage
+            var fetchedPages = 0
+            var lastProviderStatuses = providerStatuses
+            try {
+                while (cursor != null && fetchedPages < 30) {
+                    kotlinx.coroutines.delay(300)
+                    val request = AcademicSearchRequest(
+                        query = query.trim(), yearFrom = fromYear.toInt(), yearTo = toYear.toInt(),
+                        profile = profile, providers = if (manualProviders) selectedProviders else emptySet(),
+                        author = author.trim(), journal = journal.trim(), publisher = publisher.trim(),
+                        documentType = documentType.trim(), accessMode = accessMode,
+                        minCitations = minCitations.toIntOrNull(), sort = sort, page = cursor, pageSize = 20
+                    )
+                    val response = LiteratureRepository.searchAdvanced(baseUrl, request)
+                    accumulated.addAll(response.works)
+                    cursor = response.nextPage
+                    lastProviderStatuses = response.providerStatuses
+                    fetchedPages++
+                }
+                val unique = accumulated.distinctBy { it.id }
+                results = unique
+                providerStatuses = lastProviderStatuses
+                selected = unique.map { it.id }.toSet()
+                if (cursor != null) {
+                    error = "به سقف ایمن ۳۰ صفحه رسیدیم. ${unique.size} رکورد بازیابی‌شده انتخاب شد؛ ادامه خودکار متوقف شد."
+                } else if (unique.size < total) {
+                    error = "همه صفحه‌های قابل‌دریافت بررسی شدند، اما فقط ${unique.size} رکورد از ${total} رکورد اعلام‌شده بازیابی شد. رکوردهای موجود انتخاب شدند."
+                } else {
+                    error = null
+                }
+            } catch (e: Exception) {
+                val unique = accumulated.distinctBy { it.id }
+                results = unique
+                selected = unique.map { it.id }.toSet()
+                error = "بازیابی کامل نشد؛ ${unique.size} رکورد دریافت‌شده انتخاب شد. علت: ${e.message ?: "خطای ارتباط"}"
+            } finally {
+                loading = false
+            }
         }
     }
 
@@ -408,7 +463,23 @@ fun AcademicSearchScreen(onPrompt: (String, String) -> Unit, onSave: (Literature
                 item {
                     Text("نتایج یکتا: $total  •  رکوردهای دریافتی از پایگاه‌ها: $providerTotal",
                         style = MaterialTheme.typography.labelSmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
-                    Column(verticalArrangement = Arrangement.spacedBy(3.dp)) {
+                    Column(verticalArrangement = Arrangement.spacedBy(6.dp)) {
+                        Row(horizontalArrangement = Arrangement.spacedBy(5.dp)) {
+                            OutlinedButton(onClick = { selected = selected + visibleResults.map { it.id } }) {
+                                Text("انتخاب قابل‌مشاهده")
+                            }
+                            OutlinedButton(onClick = { selected = results.map { it.id }.toSet() }) {
+                                Text("انتخاب بارگذاری‌شده")
+                            }
+                        }
+                        Row(horizontalArrangement = Arrangement.spacedBy(5.dp), verticalAlignment = Alignment.CenterVertically) {
+                            Button(onClick = { selectAllSearchResults() }, enabled = !loading && nextPage != null) {
+                                Text(if (loading) "در حال دریافت..." else "دریافت و انتخاب همه صفحه‌ها")
+                            }
+                            TextButton(onClick = { selected = emptySet() }) { Text("پاک‌کردن انتخاب") }
+                        }
+                        Text("بارگذاری‌شده: ${results.size} از ${total} نتیجه یکتا • صفحه فعلی: $page",
+                            style = MaterialTheme.typography.labelSmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
                         Row(horizontalArrangement = Arrangement.spacedBy(5.dp)) {
                             FilterChip(resultTab == "all", { resultTab = "all" }, label = { Text("همه (${results.size})") })
                             FilterChip(resultTab == "open", { resultTab = "open" },
@@ -437,6 +508,10 @@ fun AcademicSearchScreen(onPrompt: (String, String) -> Unit, onSave: (Literature
                                 results.filter { it.id in selected }.forEach(onSave)
                                 selected = emptySet()
                             }, modifier = Modifier.fillMaxWidth()) { Text("ذخیره مقاله‌های انتخاب‌شده") }
+                            OutlinedButton(onClick = {
+                                onExportSelected(results.filter { it.id in selected })
+                            }, modifier = Modifier.fillMaxWidth()) { Text("خروجی منابع انتخاب‌شده (RIS)") }
+                            TextButton(onClick = { selected = emptySet() }, modifier = Modifier.fillMaxWidth()) { Text("لغو انتخاب") }
                         }
                     }
                 }
