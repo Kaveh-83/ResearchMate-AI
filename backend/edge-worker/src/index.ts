@@ -601,7 +601,8 @@ function matchesFilters(work: NormalizedWork, input: SearchInput): boolean {
   const citations = Math.max(0, ...Object.values(work.citationCounts));
   if (input.minCitations !== null && citations < input.minCitations) return false;
   if (input.accessMode === "open" && work.accessStatus !== "open") return false;
-  if (input.accessMode === "restricted" && work.accessStatus === "open") return false;
+  if (input.accessMode === "restricted" && work.accessStatus !== "restricted") return false;
+  if (input.accessMode === "unknown" && work.accessStatus !== "unknown") return false;
   return Boolean(hay) || Boolean(work.doi);
 }
 
@@ -654,7 +655,7 @@ async function searchV2(request: Request, env: Env): Promise<Response> {
 
   if (input.sort === "newest") all.sort((a, b) => (b.year ?? 0) - (a.year ?? 0));
   else if (input.sort === "citations") all.sort((a, b) => Math.max(0, ...Object.values(b.citationCounts)) - Math.max(0, ...Object.values(a.citationCounts)));
-  else all.sort((a, b) => (b.accessStatus === "open" ? 1 : 0) - (a.accessStatus === "open" ? 1 : 0));
+  // Relevance mode preserves the relevance ordering supplied by the first successful providers.
 
   const openCount = all.filter((w) => w.accessStatus === "open").length;
   const restrictedCount = all.filter((w) => w.accessStatus !== "open").length;
