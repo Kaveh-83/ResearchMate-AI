@@ -203,7 +203,7 @@ private fun ResearchMateHome() {
                         Text("ResearchMate AI", style = MaterialTheme.typography.titleLarge, fontWeight = FontWeight.Bold)
                         Text("دستیار هوشمند پژوهش", style = MaterialTheme.typography.labelSmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
                     }
-                    Text("0.7.0", color = MaterialTheme.colorScheme.primary, style = MaterialTheme.typography.labelLarge)
+                    Text("v" + BuildConfig.VERSION_NAME, color = MaterialTheme.colorScheme.primary, style = MaterialTheme.typography.labelLarge)
                 }
             }
             AnimatedContent(page, label = "workspace-page", modifier = Modifier.weight(1f)) { target ->
