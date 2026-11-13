@@ -36,19 +36,32 @@ jobs:
         with:
           gradle-version: "9.6.0"
 
-      - name: Assemble release APK
+      - name: Read app version
+        id: app-version
+        shell: bash
+        run: |
+          VERSION_NAME=$(sed -n 's/.*versionName="\\([^"]*\\)".*/\\1/p' android/app/build.gradle.kts)
+          if [ -z "$VERSION_NAME" ]; then
+            echo "Could not read versionName from build.gradle.kts"
+            exit 1
+          fi
+          echo "version=$VERSION_NAME" >> "$GITHUB_OUTPUT"
+
+      - name: Assemble Android APK
         working-directory: android
         run: gradle assembleDebug --no-daemon -PAPI_BASE_URL=https://researchmate-ai.kavehjafari710.workers.dev
 
       - name: Publish APK to GitHub Releases
         uses: softprops/action-gh-release@v2
         with:
-          tag_name: v0.7.0
-          name: ResearchMate AI 0.7.0
+          tag_name: v${{ steps.app-version.outputs.version }}
+          name: ResearchMate AI ${{ steps.app-version.outputs.version }}
           body: |
-            ResearchMate AI Android 0.7.0 — multi-provider scientific literature discovery.
+            ResearchMate AI Android ${{ steps.app-version.outputs.version }}.
 
-            Includes multidisciplinary profile-aware search through OpenAlex, Crossref, Semantic Scholar, Europe PMC, PubMed and arXiv; advanced filters; DOI deduplication; separate open/restricted/unknown access categories; provider-level status; source-labelled citation counts; plus the existing local research library and writing workspace.
+            Includes persistent saved academic searches with the full query profile, date range, provider selection, filters and sorting. Saved searches are stored locally on the device and can be loaded for reproducible reruns. Existing research projects, library records, notes and evidence remain intact.
+
+            Search continues to use the configured free scholarly providers. No paid API integration is enabled by default.
 
             This is a debug-signed APK. Uninstall an older build first if Android reports a signature conflict. Back up project data before uninstalling.
           draft: false
