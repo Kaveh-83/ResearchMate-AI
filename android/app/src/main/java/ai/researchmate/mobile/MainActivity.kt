@@ -276,12 +276,12 @@ private fun ResearchMateHome() {
                             onExportPdf = { documentTitle, documentText ->
                                 pendingDocumentTitle = documentTitle
                                 pendingDocumentText = documentText
-                                promptPdfExport.launch("researchmate-${documentTitle.take(35).replace(Regex("[^\\\\p{L}\\\\p{N}]+"), "-")}.pdf")
+                                promptPdfExport.launch("researchmate-${documentTitle.take(35).replace(Regex("[^\\p{L}\\p{N}]+"), "-")}.pdf")
                             },
                             onExportWord = { documentTitle, documentText ->
                                 pendingDocumentTitle = documentTitle
                                 pendingDocumentText = documentText
-                                promptWordExport.launch("researchmate-${documentTitle.take(35).replace(Regex("[^\\\\p{L}\\\\p{N}]+"), "-")}.docx")
+                                promptWordExport.launch("researchmate-${documentTitle.take(35).replace(Regex("[^\\p{L}\\p{N}]+"), "-")}.docx")
                             }
                         )
                     }
