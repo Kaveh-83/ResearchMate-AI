@@ -116,9 +116,7 @@ private fun ResearchMateHome() {
     var projects by remember { mutableStateOf(ProjectStore.load(context)) }
     var library by remember { mutableStateOf(db.allPapers()) }
     var evidence by remember { mutableStateOf(emptyList<EvidenceRecord>()) }
-    var pendingDocumentTitle by remember { mutableStateOf("ResearchMate AI") }
-    var pendingDocumentText by remember { mutableStateOf("") }
-    var pendingSelectedWorks by remember { mutableStateOf(emptyList<LiteratureWork>()) }
+    var pendingDocumentTitle by remember { mutableStateOf("ResearchMate AI") }\n    var pendingDocumentText by remember { mutableStateOf("") }\n    var pendingSelectedWorks by remember { mutableStateOf(emptyList<LiteratureWork>()) }
 
     fun reload() {
         projects = ProjectStore.load(context)
@@ -453,11 +451,7 @@ private fun SearchScreen(onPrompt: (String, String) -> Unit, onSave: (Literature
                     Text(selected.size.toString() + " مقاله انتخاب شده")
                     Button(onClick = {
                         val chosen = results.filter { it.id in selected }
-                        onPrompt(if (chosen.size == 1) chosen.first().title else query, chosen.joinToString("
-
----
-
-") { it.promptText() })
+                        onPrompt(if (chosen.size == 1) chosen.first().title else query, chosen.joinToString("\n\n---\n\n") { it.promptText() })
                     }, Modifier.fillMaxWidth()) { Text("انتقال مقاله‌ها به استودیوی نگارش") }
                     OutlinedButton(onClick = { results.filter { it.id in selected }.forEach(onSave); selected = emptySet() }, Modifier.fillMaxWidth()) { Text("ذخیره همه در کتابخانه") }
                 }
