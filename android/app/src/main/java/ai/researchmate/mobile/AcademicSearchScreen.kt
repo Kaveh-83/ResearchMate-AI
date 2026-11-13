@@ -226,7 +226,8 @@ fun AcademicSearchScreen(onPrompt: (String, String) -> Unit, onSave: (Literature
             try {
                 while (cursor != null && fetchedPages < 30) {
                     kotlinx.coroutines.delay(300)
-                    val request = snapshot.copy(page = cursor)
+                    val requestedPage = cursor ?: break
+                    val request = snapshot.copy(page = requestedPage)
 
                     val response = LiteratureRepository.searchAdvanced(baseUrl, request)
                     accumulated.addAll(response.works)
