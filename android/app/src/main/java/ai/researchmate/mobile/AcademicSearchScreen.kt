@@ -46,6 +46,7 @@ private val searchProviders = listOf(
     SearchProviderOption("arxiv", "arXiv")
 )
 
+@OptIn(ExperimentalMaterial3Api::class)
 @Composable
 fun AcademicSearchScreen(onPrompt: (String, String) -> Unit, onSave: (LiteratureWork) -> Unit) {
     val context = LocalContext.current
