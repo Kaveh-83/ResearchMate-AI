@@ -40,7 +40,7 @@ jobs:
         id: app-version
         shell: bash
         run: |
-          VERSION_NAME=$(sed -n 's/.*versionName="\\([^"]*\\)".*/\\1/p' android/app/build.gradle.kts)
+          VERSION_NAME=$(sed -n 's/.*versionName="\([^"]*\)".*/\1/p' android/app/build.gradle.kts)
           if [ -z "$VERSION_NAME" ]; then
             echo "Could not read versionName from build.gradle.kts"
             exit 1
