@@ -11,8 +11,8 @@ android {
   applicationId="ai.researchmate.mobile"
   minSdk=26
   targetSdk=36
-  versionCode=8
-  versionName="0.8.0"
+  versionCode=9
+  versionName="0.8.1"
  }
  buildTypes { release { isMinifyEnabled=true; proguardFiles(getDefaultProguardFile("proguard-android-optimize.txt"),"proguard-rules.pro") } }
  compileOptions { sourceCompatibility=JavaVersion.VERSION_17; targetCompatibility=JavaVersion.VERSION_17 }
