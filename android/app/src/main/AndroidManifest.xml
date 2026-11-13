@@ -7,7 +7,7 @@
         android:roundIcon="@mipmap/ic_launcher"
         android:label="ResearchMate AI"
         android:supportsRtl="true"
-        android:theme="@android:style/Theme.Material.Light.NoActionBar"
+        android:theme="@android:style/Theme.Material.NoActionBar"
         android:usesCleartextTraffic="false">
         <activity
             android:name=".MainActivity"
