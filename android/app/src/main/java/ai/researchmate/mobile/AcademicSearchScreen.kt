@@ -17,6 +17,8 @@ import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import kotlinx.coroutines.launch
+import org.json.JSONArray
+import org.json.JSONObject
 
 private data class SearchProfileOption(val id: String, val label: String)
 
@@ -36,6 +38,52 @@ private val searchProfiles = listOf(
 )
 
 private data class SearchProviderOption(val id: String, val label: String)
+
+private data class SavedAcademicSearch(
+    val query: String, val yearFrom: String, val yearTo: String, val profile: String,
+    val manualProviders: Boolean, val providers: Set<String>, val author: String, val journal: String,
+    val publisher: String, val documentType: String, val accessMode: String,
+    val minCitations: String, val sort: String, val savedAt: Long = System.currentTimeMillis(),
+)
+
+private fun loadSavedAcademicSearches(context: android.content.Context): List<SavedAcademicSearch> {
+    return try {
+        val raw = context.getSharedPreferences("researchmate_saved_searches", android.content.Context.MODE_PRIVATE)
+            .getString("items", "[]") ?: "[]"
+        val array = JSONArray(raw)
+        buildList {
+            for (i in 0 until array.length()) {
+                val x = array.optJSONObject(i) ?: continue
+                val providers = x.optJSONArray("providers") ?: JSONArray()
+                add(SavedAcademicSearch(
+                    query = x.optString("query"), yearFrom = x.optString("yearFrom"), yearTo = x.optString("yearTo"),
+                    profile = x.optString("profile", "all"), manualProviders = x.optBoolean("manualProviders"),
+                    providers = buildSet { for (j in 0 until providers.length()) add(providers.optString(j)) },
+                    author = x.optString("author"), journal = x.optString("journal"), publisher = x.optString("publisher"),
+                    documentType = x.optString("documentType"), accessMode = x.optString("accessMode", "all"),
+                    minCitations = x.optString("minCitations"), sort = x.optString("sort", "relevance"),
+                    savedAt = x.optLong("savedAt", 0L),
+                ))
+            }
+        }.filter { it.query.isNotBlank() }
+    } catch (_: Exception) { emptyList() }
+}
+
+private fun persistSavedAcademicSearches(context: android.content.Context, items: List<SavedAcademicSearch>) {
+    val array = JSONArray()
+    items.take(20).forEach { item ->
+        array.put(JSONObject().apply {
+            put("query", item.query); put("yearFrom", item.yearFrom); put("yearTo", item.yearTo)
+            put("profile", item.profile); put("manualProviders", item.manualProviders)
+            put("providers", JSONArray(item.providers.toList()))
+            put("author", item.author); put("journal", item.journal); put("publisher", item.publisher)
+            put("documentType", item.documentType); put("accessMode", item.accessMode)
+            put("minCitations", item.minCitations); put("sort", item.sort); put("savedAt", item.savedAt)
+        })
+    }
+    context.getSharedPreferences("researchmate_saved_searches", android.content.Context.MODE_PRIVATE)
+        .edit().putString("items", array.toString()).apply()
+}
 
 private val searchProviders = listOf(
     SearchProviderOption("openalex", "OpenAlex"),
@@ -80,6 +128,8 @@ fun AcademicSearchScreen(onPrompt: (String, String) -> Unit, onSave: (Literature
     var nextPage by remember { mutableStateOf<Int?>(null) }
     var page by remember { mutableIntStateOf(1) }
     var profileMenu by remember { mutableStateOf(false) }
+    var savedSearches by remember { mutableStateOf(loadSavedAcademicSearches(context)) }
+    var showSavedSearches by remember { mutableStateOf(false) }
 
     fun runSearch(append: Boolean = false) {
         val start = fromYear.toIntOrNull()
@@ -292,6 +342,38 @@ fun AcademicSearchScreen(onPrompt: (String, String) -> Unit, onSave: (Literature
                 }
             }
 
+            item {
+                Row(horizontalArrangement = Arrangement.spacedBy(8.dp), modifier = Modifier.fillMaxWidth()) {
+                    OutlinedButton(onClick = {
+                        if (query.trim().length < 2) {
+                            error = "برای ذخیره، ابتدا عبارت جست‌وجو را وارد کن."
+                        } else {
+                            val item = SavedAcademicSearch(
+                                query = query.trim(), yearFrom = fromYear, yearTo = toYear, profile = profile,
+                                manualProviders = manualProviders, providers = selectedProviders,
+                                author = author, journal = journal, publisher = publisher,
+                                documentType = documentType, accessMode = accessMode,
+                                minCitations = minCitations, sort = sort
+                            )
+                            savedSearches = listOf(item) + savedSearches.filterNot {
+                                it.query.equals(item.query, true) && it.profile == item.profile
+                            }
+                            persistSavedAcademicSearches(context, savedSearches)
+                            error = null
+                        }
+                    }, modifier = Modifier.weight(1f)) {
+                        Icon(Icons.Default.BookmarkAdd, null)
+                        Spacer(Modifier.width(5.dp))
+                        Text("ذخیره جست‌وجو")
+                    }
+                    OutlinedButton(onClick = { showSavedSearches = true }, modifier = Modifier.weight(1f)) {
+                        Icon(Icons.Default.History, null)
+                        Spacer(Modifier.width(5.dp))
+                        Text("ذخیره‌شده‌ها (${savedSearches.size})")
+                    }
+                }
+            }
+
             if (providerStatuses.isNotEmpty()) {
                 item {
                     Card(shape = RoundedCornerShape(14.dp)) {
@@ -449,6 +531,46 @@ fun AcademicSearchScreen(onPrompt: (String, String) -> Unit, onSave: (Literature
                 }
             }
         }
+    }
+
+    if (showSavedSearches) {
+        AlertDialog(
+            onDismissRequest = { showSavedSearches = false },
+            title = { Text("جست‌وجوهای ذخیره‌شده") },
+            text = {
+                if (savedSearches.isEmpty()) Text("هنوز جست‌وجویی ذخیره نشده است.")
+                else LazyColumn(verticalArrangement = Arrangement.spacedBy(6.dp), modifier = Modifier.heightIn(max = 420.dp)) {
+                    items(savedSearches) { item ->
+                        Card {
+                            Row(Modifier.fillMaxWidth().padding(8.dp), verticalAlignment = Alignment.CenterVertically) {
+                                Column(Modifier.weight(1f)) {
+                                    Text(item.query, fontWeight = FontWeight.SemiBold)
+                                    Text(
+                                        "${item.yearFrom}–${item.yearTo} · ${searchProfiles.firstOrNull { it.id == item.profile }?.label ?: item.profile}",
+                                        style = MaterialTheme.typography.labelSmall,
+                                        color = MaterialTheme.colorScheme.onSurfaceVariant
+                                    )
+                                }
+                                TextButton(onClick = {
+                                    query = item.query; fromYear = item.yearFrom; toYear = item.yearTo
+                                    profile = item.profile; manualProviders = item.manualProviders
+                                    selectedProviders = item.providers; author = item.author; journal = item.journal
+                                    publisher = item.publisher; documentType = item.documentType
+                                    accessMode = item.accessMode; minCitations = item.minCitations; sort = item.sort
+                                    advanced = true; showSavedSearches = false; results = emptyList()
+                                    error = "فیلترها بارگذاری شدند؛ برای اجرای دوباره، دکمه جست‌وجو را بزن."
+                                }) { Text("بارگذاری") }
+                                IconButton(onClick = {
+                                    savedSearches = savedSearches.filterNot { it.savedAt == item.savedAt && it.query == item.query }
+                                    persistSavedAcademicSearches(context, savedSearches)
+                                }) { Icon(Icons.Default.DeleteOutline, contentDescription = "حذف") }
+                            }
+                        }
+                    }
+                }
+            },
+            confirmButton = { TextButton(onClick = { showSavedSearches = false }) { Text("بستن") } }
+        )
     }
 }
 
