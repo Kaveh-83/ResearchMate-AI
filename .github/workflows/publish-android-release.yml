@@ -59,7 +59,7 @@ jobs:
           body: |
             ResearchMate AI Android ${{ steps.app-version.outputs.version }}.
 
-            Includes persistent saved academic searches with the full query profile, date range, provider selection, filters and sorting. Saved searches are stored locally on the device and can be loaded for reproducible reruns. Existing research projects, library records, notes and evidence remain intact.
+            Fixes the app header so it displays the actual installed version from the Android build configuration (v0.8.1). Retains persistent saved academic searches with the full query profile, date range, provider selection, filters and sorting. Existing research projects, library records, notes and evidence remain intact.
 
             Search continues to use the configured free scholarly providers. No paid API integration is enabled by default.
 
