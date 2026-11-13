@@ -273,7 +273,7 @@ async function searchCrossref(input: SearchInput, env: Env): Promise<{ works: No
   const works = asArray(message.items).map((raw) => {
     const item = asRecord(raw);
     const authors = asArray(item.author).slice(0, 8).map((a) => [cleanString(asRecord(a).given), cleanString(asRecord(a).family)].filter(Boolean).join(" ")).filter(Boolean).join(", ");
-    const dateParts = asArray(asRecord(item.published || item["published-print"] || item["published-online"]).["date-parts"]);
+    const dateParts = asArray(asRecord(item.published || item["published-print"] || item["published-online"])["date-parts"]);
     const date = asArray(dateParts[0]);
     const year = cleanYear(date[0]);
     const licenses = asArray(item.license).map((l) => cleanString(asRecord(l).URL)).join(" ");
