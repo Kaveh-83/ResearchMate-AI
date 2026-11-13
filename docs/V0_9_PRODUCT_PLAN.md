@@ -1,102 +1,71 @@
-# ResearchMate AI v0.9.0 — Product & Engineering Plan
+# ResearchMate AI v0.9.0 — Release scope and product notes
 
-## Product goal
+## Release intent
 
-Make literature search practical for real research workflows: users can select a complete search result set, curate it in batches, and move the selected papers into a durable library or export them without losing source provenance.
+Move ResearchMate from a multi-source paper finder toward a practical literature-workflow tool while preserving the project's constraints:
+- Android-first and usable on an ordinary phone.
+- No mandatory paid API key; connected scholarly providers remain the existing free-source set.
+- Local library/project data remain on-device.
+- No paywall bypass and no unsupported claims about full-text access.
+- File creation must be real and verifiable, not just a prompt asking for a file.
 
-This is a design specification, not a claim that these features are already implemented.
+## Implemented in v0.9.0 source
 
-## P0 — Select all discovered papers
+### 1. Bulk selection in academic search
+- Select visible records in the current access-status tab.
+- Select all records already loaded in the current search session, across tabs.
+- Retrieve subsequent pages sequentially and select records actually returned.
+- Pagination reuses a snapshot of the original search request so edits to the search form do not silently alter the in-progress result set.
+- Sequential retrieval uses a short pause and is bounded to 30 additional pages per action.
+- If retrieval stops early, the UI reports the number actually retrieved and selected rather than claiming the provider's reported total has been collected.
+- Selected references can be saved to the local library, sent to Prompt Studio, or exported as RIS.
 
-### Required user experience
+### 2. Scientific document output
+- Prompt Studio's instructions now require a real PDF as the primary deliverable and request an editable DOCX copy when supported.
+- The app provides an offline document handoff: paste the final AI-generated text into the deliverable field, then save PDF or DOCX to a location chosen on the device.
+- PDF output uses Android's bidirectional text layout for Persian/RTL text, A4-like page dimensions, margins, title, and page numbering.
+- DOCX output is a minimal WordprocessingML package with RTL paragraph settings and basic heading/list handling.
+- No AI inference or text is sent to a paid service by the local file exporter.
 
-- Add a selection toolbar above search results.
-- Provide three explicit actions:
-  1. Select visible results — only the currently displayed access tab/filter.
-  2. Select all loaded results — all result records fetched into the current search session, across access tabs and pages already loaded.
-  3. Select all search results — retrieve the complete result set represented by the search, not merely the current page.
-- Show a persistent count, e.g. "38 selected of 124 discovered".
-- Provide clear selection and invert selection.
-- Keep selected IDs stable when the user changes the access tab or scrolls.
-- If a new query or filter set is submitted, clear the prior selection after confirmation or clearly show that it belongs to the prior query.
+### 3. Existing capabilities retained
+- Multi-provider search, saved search profiles, provider status and access labels.
+- Local paper library, projects, notes, evidence records, comparison view, and library exports.
+- Existing backup/restore workflow.
 
-### Critical correctness requirement
+## Important limitations
 
-The current API uses page-based retrieval across several providers and merges/deduplicates records. A page-level count is not proof that every unique result has been loaded. "Select all search results" must not silently select only the current page.
+- The prompt itself cannot force an external AI chat service to attach files if that service lacks file-generation capability. The app therefore offers a second, reliable local export path after the user pastes the final text.
+- The app does not yet perform automatic full-text scientific extraction from every PDF.
+- Bulk retrieval is bounded to 30 additional pages per action. Provider totals are not treated as evidence that all records were retrieved.
+- Selection is based on IDs returned by the current search session. Cross-provider duplicate resolution still depends on the backend's current identifier/deduplication logic.
+- The DOCX exporter prioritizes robust basic text, RTL direction, and headings; complex tables, equations, embedded figures, reference-manager fields, and journal-specific page styles require later refinement.
+- The PDF exporter is a lightweight device-side formatter, not a full journal typesetting engine. Complex tables, figures, and equation layout should be checked before submission.
+- No paid Scopus, Web of Science, IEEE, Springer, or citation-context service is enabled.
+- A DOI, citation count, or journal metric is metadata, not proof of research quality.
 
-Before shipping full-result selection:
-- define a stable search-session identifier or a reproducible search request snapshot;
-- fetch all pages in a controlled, sequential manner, respecting provider rate limits and the API's maximum page boundary;
-- deduplicate by DOI, then PMID/arXiv ID, then normalized title/year;
-- report partial completion if a provider is throttled or a page fails;
-- show the exact number of selected and unselected records;
-- offer "select all successfully retrieved" separately from "retry missing pages".
-- never represent provider-reported total counts as fully selectable records until the actual record IDs have been retrieved.
+## Benchmark lessons adopted
 
-### Bulk actions
+- Elicit: structured screening/extraction/report workflow and PDF/Word exports.
+- ResearchRabbit: collections, notes, and citation-led discovery.
+- SciSpace/Scite: paper understanding and citation-context analysis.
+- ResearchMate adopts the feasible parts first: reliable batch selection, export, source provenance, and an explicit file-delivery workflow. Citation graphs and evidence-grounded full-text synthesis remain future work because they require dependable reference/citation/full-text data.
 
-For selected records:
-- Save all to the local library, with duplicate detection and a progress/result summary.
-- Export selected references to BibTeX, RIS, CSV and a structured JSON file.
-- Add selected papers to a project or reading queue.
-- Send selected records to Prompt Studio in bounded batches; never silently truncate a large selection.
-- Compare a user-chosen subset (default 2–5) rather than trying to compare hundreds at once.
-- Remove selected records from the current selection without deleting library data.
+## Next recommended increment (v0.10)
 
-## P1 — Research workflow improvements
+1. Reading queue states: To read / Reading / Read / Excluded.
+2. User-defined collections and tags linked to projects.
+3. Duplicate detection by DOI, PMID/arXiv identifier, then normalized title/year before saving.
+4. Systematic-review screening: Include / Exclude / Maybe with a reason and audit trail.
+5. Evidence matrix with claim, value, unit, method, page/section, and exact source.
+6. Citation network only after a provider-backed reference/citation endpoint is implemented.
+7. Improved DOCX/PDF layout for tables, figures, equation blocks, and bibliography styles.
 
-1. Reading queue with statuses: To read, Reading, Read, Excluded.
-2. Tags and collections by project, topic, method and material/system.
-3. Duplicate warnings when saving a paper already in the library.
-4. One-tap export of the selected records and their source metadata.
-5. Search history with reproducible query snapshots and provider status.
-6. Citation links: discover references and citing papers where the provider API supplies them; display provider and retrieval date.
-7. Article quality checklist: retraction/correction flags, DOI validity, abstract availability, publication type, and metadata completeness. Do not turn these into an opaque quality score.
+## Acceptance checks
 
-## P2 — High-value future capabilities
-
-- Systematic-review screening with Include / Exclude / Maybe and reason labels.
-- Evidence extraction matrix with claim, value, unit, method, page/section, and source.
-- Alerts for corrections/retractions using trustworthy sources.
-- Citation graph and seminal-vs-recent paper exploration.
-- Journal explorer with only verifiable metrics, each carrying source and data year.
-- Cross-paper synthesis that links every extracted claim back to a paper and, when available, a page/section anchor.
-
-## UX layout proposal
-
-Search screen:
-- Header: query name + result count + provider status.
-- Selection bar: Select visible | Select loaded | Select all results | Clear.
-- Selection summary: selected count and retrieval completeness.
-- Bulk action sheet: Save to library | Export | Add to project | Send to Prompt Studio | Compare subset.
-- Partial-failure banner with retry option and per-provider status.
-
-## Acceptance criteria
-
-- Selecting visible records never changes records outside the visible set.
-- Select loaded includes every unique record currently fetched, regardless of access tab.
-- Select all results retrieves every available page within the declared search limit or explicitly reports the incomplete portion.
-- No silent partial selection.
-- DOI/identifier duplicates are not saved twice.
-- Bulk operations show success, skipped duplicates and failures separately.
-- Large Prompt Studio transfers are chunked and preserve paper IDs/source URLs.
-- Existing library, projects, evidence, notes, saved searches and exports remain compatible.
-- Tests cover empty results, 1 result, >1 page, duplicate DOI, throttled provider, failed page, access-tab changes and interrupted retrieval.
-
-## Recommended v0.9.0 delivery order
-
-1. Selection toolbar and select-visible/select-loaded.
-2. Safe complete-result retrieval and select-all-results.
-3. Bulk save with duplicate handling.
-4. RIS/BibTeX/CSV export of selected items.
-5. Add to project/reading queue.
-6. Citation exploration and systematic-review features in later releases.
-
-## Non-negotiable constraints
-
-- Free scholarly providers remain the default.
-- No API keys or secrets inside the Android APK or public repository.
-- No paywall circumvention or unauthorized full-text downloading.
-- Show provenance and limitations for citations and access labels.
-- Preserve user library data during upgrades.
-- Do not claim a feature is shipped until the Android build and release artifact have been verified.
+- The app's visible version matches Gradle versionName.
+- Select visible does not select hidden access tabs.
+- Select loaded selects all IDs fetched in the active search session.
+- Retrieve all pages uses the original request snapshot and reports partial results honestly.
+- RIS export contains the selected records only.
+- PDF and DOCX files are created locally from pasted final text and are not represented as AI-generated content unless an external model actually produced the text.
+- Existing library, projects, notes, and evidence remain compatible.
