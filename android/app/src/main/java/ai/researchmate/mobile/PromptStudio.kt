@@ -22,7 +22,7 @@ import java.time.Year
 private val outputs=listOf("مقاله پژوهشی اصیل","مقاله مروری روایتی","مرور نظام‌مند","فراتحلیل","پروپوزال پژوهشی","فصل پایان‌نامه","گزارش فنی/صنعتی","نقد و داوری مقاله","پوستر علمی","گزارش مرور ادبیات و نقشه پژوهش")
 
 @Composable
-fun PromptStudioScreen(initialTopic:String,initialPaperContext:String,initialProjectTitle:String,initialProjectId:String?,onSaveProject:(ResearchProject)->Unit){
+fun PromptStudioScreen(initialTopic:String,initialPaperContext:String,initialProjectTitle:String,initialProjectId:String?,onSaveProject:(ResearchProject)->Unit,onExportPdf:(String,String)->Unit,onExportWord:(String,String)->Unit){
  val ctx=LocalContext.current;val now=Year.now().value
  var title by rememberSaveable(initialProjectId){mutableStateOf(initialProjectTitle)}
  var topic by rememberSaveable(initialProjectId,initialTopic){mutableStateOf(initialTopic)}
@@ -39,7 +39,7 @@ fun PromptStudioScreen(initialTopic:String,initialPaperContext:String,initialPro
  var constraints by rememberSaveable{mutableStateOf("هیچ داده، DOI، منبع یا نتیجه‌ای جعل نشود.")}
  var papers by rememberSaveable(initialProjectId,initialPaperContext){mutableStateOf(initialPaperContext)}
  var target by rememberSaveable(initialProjectId){mutableStateOf(90f)}
- var rounds by rememberSaveable(initialProjectId){mutableStateOf(5f)}
+ var rounds by rememberSaveable(initialProjectId){mutableStateOf(5f)}\n var finalDraft by rememberSaveable(initialProjectId){mutableStateOf("")}
  var menu by remember{mutableStateOf(false)};var message by remember{mutableStateOf<String?>(null)}
  val a=from.toIntOrNull();val b=to.toIntOrNull();val valid=a!=null&&b!=null&&a in 1800..now&&b in 1800..now&&a<=b
  val promptText=remember(topic,domain,goal,output,level,from,to,language,citation,audience,journal,length,corpus,constraints,papers,target,rounds,valid){if(!valid)"" else buildPrompt(topic,domain,goal,output,level,a!!,b!!,language,citation,audience,journal,length,corpus,constraints,papers,target.toInt(),rounds.toInt())}
@@ -76,6 +76,18 @@ fun PromptStudioScreen(initialTopic:String,initialPaperContext:String,initialPro
    }
   }
   Card(Modifier.fillMaxWidth(),shape=RoundedCornerShape(15.dp)){SelectionContainer{Text(promptText.ifBlank{"موضوع و سال معتبر را وارد کن."},Modifier.padding(12.dp),style=MaterialTheme.typography.bodySmall,textAlign=TextAlign.Start)}}
+  Card(Modifier.fillMaxWidth(),shape=RoundedCornerShape(16.dp)){
+   Column(Modifier.padding(12.dp),verticalArrangement=Arrangement.spacedBy(8.dp)){
+    Text("تحویل فایل مقاله",style=MaterialTheme.typography.titleMedium,fontWeight=FontWeight.Bold)
+    Text("متن نهایی تولیدشده توسط ChatGPT یا مدل دیگر را در کادر زیر قرار بده؛ سپس فایل واقعی PDF یا Word را مستقیماً روی گوشی ذخیره کن.",style=MaterialTheme.typography.bodySmall,color=MaterialTheme.colorScheme.onSurfaceVariant)
+    OutlinedTextField(finalDraft,{finalDraft=it},Modifier.fillMaxWidth(),label={Text("متن کامل مقاله یا گزارش نهایی")},minLines=8)
+    Row(horizontalArrangement=Arrangement.spacedBy(8.dp)){
+     Button(onClick={onExportPdf(title.ifBlank{topic},finalDraft)},enabled=finalDraft.isNotBlank(),modifier=Modifier.weight(1f)){Text("ساخت PDF")}
+     OutlinedButton(onClick={onExportWord(title.ifBlank{topic},finalDraft)},enabled=finalDraft.isNotBlank(),modifier=Modifier.weight(1f)){Text("ساخت Word")}
+    }
+    Text("خروجی به‌صورت آفلاین روی دستگاه ساخته می‌شود؛ متن برای تبدیل فایل به سرور ارسال نمی‌شود.",style=MaterialTheme.typography.labelSmall,color=MaterialTheme.colorScheme.tertiary)
+   }
+  }
   Spacer(Modifier.height(12.dp))
  }
 }
@@ -158,8 +170,15 @@ PRISMA و سایر راهنماها فقط برای طرح مرتبط.
 8. اگر به هدف نرسیدی، پس از دور آخر متوقف شو و نمره واقعی، فاصله تا هدف و ایرادهای باقی‌مانده را گزارش کن؛ رسیدن به هدف را جعل نکن.
 9. نمره هر دور مستقل و انتقادی باشد.
 
-## تحویل
-متن کامل با تیترهای استاندارد، چکیده، کلیدواژه‌ها، جدول‌ها، ارجاع درون‌متنی و منابع کنترل‌شده را ارائه کن. در پایان جدول امتیاز هر دور، نمره نهایی، رتبه داخلی، هدف و وضعیت دستیابی را بیاور. پذیرش مجله یا کیفیت قطعی را تضمین نکن.
+## تحویل فایل — شرط اجباری
+- خروجی نهایی را فقط به شکل متن خام یا پاسخ چت تحویل نده. باید یک فایل واقعی و قابل دریافت تولید کنی.
+- فایل اصلی را با فرمت PDF و صفحه‌آرایی علمی آماده کن؛ در صورت امکان یک نسخه Word قابل ویرایش (.docx) نیز بساز.
+- فایل باید شامل عنوان، نویسندگان/جای‌نگهدارهای مشخص، چکیده، کلیدواژه‌ها، متن کامل بخش‌بندی‌شده، جدول‌ها، ارجاع‌های درون‌متنی و فهرست منابع باشد.
+- صفحه‌آرایی: اندازه A4، حاشیه استاندارد، فونت خوانا، تیترهای سلسله‌مراتبی، شماره صفحه، فاصله خطوط مناسب، جدول‌های شماره‌گذاری‌شده و منابع با تورفتگی آویزان در صورت پشتیبانی.
+- معادلات را با نمادگذاری استاندارد و واحدهای SI بنویس؛ از شکستن معادلات و جدول‌ها در صفحه تا حد امکان جلوگیری کن.
+- قبل از تحویل، فایل را بازبینی کن: صفحات خالی/بریده، متن ناقص، فونت ناخوانا، ارجاعات شکسته و جدول‌های خارج از صفحه نباید باقی بمانند.
+- پس از ساخت، پیوند دانلود مستقیم فایل را ارائه کن و وجود فایل را بررسی کن. اگر محیط واقعاً امکان ساخت یا پیوست فایل ندارد، صریح بگو و هرگز وانمود نکن فایل ساخته شده است؛ در آن حالت متن کامل و آماده تبدیل را تحویل بده.
+- متن کامل را هم در پاسخ کوتاه خلاصه کن، اما فایل PDF باید مرجع اصلی تحویل باشد. پذیرش مجله یا کیفیت قطعی را تضمین نکن.
 """
  return template
   .replace("{{TOPIC}}",topic).replace("{{DOMAIN}}",domain).replace("{{GOAL}}",goal)
