@@ -147,7 +147,8 @@ fun AcademicSearchScreen(onPrompt: (String, String) -> Unit, onSave: (Literature
     val visibleResults = results.filter { work ->
         when (resultTab) {
             "open" -> work.accessStatus == "open"
-            "other" -> work.accessStatus != "open"
+            "restricted" -> work.accessStatus == "restricted"
+            "unknown" -> work.accessStatus == "unknown"
             else -> true
         }
     }
@@ -246,8 +247,11 @@ fun AcademicSearchScreen(onPrompt: (String, String) -> Unit, onSave: (Literature
                         Text("وضعیت دسترسی متن کامل", style = MaterialTheme.typography.titleSmall, fontWeight = FontWeight.SemiBold)
                         Row(horizontalArrangement = Arrangement.spacedBy(6.dp)) {
                             FilterChip(accessMode == "all", { accessMode = "all" }, label = { Text("همه") })
-                            FilterChip(accessMode == "open", { accessMode = "open" }, label = { Text("فقط آزاد") })
+                            FilterChip(accessMode == "open", { accessMode = "open" }, label = { Text("آزاد") })
+                        }
+                        Row(horizontalArrangement = Arrangement.spacedBy(6.dp)) {
                             FilterChip(accessMode == "restricted", { accessMode = "restricted" }, label = { Text("بدون نسخه آزاد") })
+                            FilterChip(accessMode == "unknown", { accessMode = "unknown" }, label = { Text("نامشخص") })
                         }
                         Text("نبودن لینک آزاد، به‌تنهایی اثبات نمی‌کند مقاله پولی است؛ ممکن است وضعیت دسترسی نامشخص باشد.",
                             style = MaterialTheme.typography.labelSmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
@@ -322,12 +326,18 @@ fun AcademicSearchScreen(onPrompt: (String, String) -> Unit, onSave: (Literature
                 item {
                     Text("نتایج یکتا: $total  •  رکوردهای دریافتی از پایگاه‌ها: $providerTotal",
                         style = MaterialTheme.typography.labelSmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
-                    Row(horizontalArrangement = Arrangement.spacedBy(5.dp)) {
-                        FilterChip(resultTab == "all", { resultTab = "all" }, label = { Text("همه (${results.size})") })
-                        FilterChip(resultTab == "open", { resultTab = "open" },
-                            label = { Text("متن آزاد (${results.count { it.accessStatus == "open" }})") })
-                        FilterChip(resultTab == "other", { resultTab = "other" },
-                            label = { Text("بدون لینک آزاد (${results.count { it.accessStatus != "open" }})") })
+                    Column(verticalArrangement = Arrangement.spacedBy(3.dp)) {
+                        Row(horizontalArrangement = Arrangement.spacedBy(5.dp)) {
+                            FilterChip(resultTab == "all", { resultTab = "all" }, label = { Text("همه (${results.size})") })
+                            FilterChip(resultTab == "open", { resultTab = "open" },
+                                label = { Text("آزاد (${results.count { it.accessStatus == "open" }})") })
+                        }
+                        Row(horizontalArrangement = Arrangement.spacedBy(5.dp)) {
+                            FilterChip(resultTab == "restricted", { resultTab = "restricted" },
+                                label = { Text("بدون نسخه آزاد (${results.count { it.accessStatus == "restricted" }})") })
+                            FilterChip(resultTab == "unknown", { resultTab = "unknown" },
+                                label = { Text("نامشخص (${results.count { it.accessStatus == "unknown" }})") })
+                        }
                     }
                 }
             }
@@ -362,8 +372,16 @@ fun AcademicSearchScreen(onPrompt: (String, String) -> Unit, onSave: (Literature
                             })
                             Text("انتخاب", style = MaterialTheme.typography.labelSmall)
                             Spacer(Modifier.weight(1f))
-                            AssistChip(onClick = { resultTab = if (work.accessStatus == "open") "open" else "other" },
-                                label = { Text(if (work.accessStatus == "open") "متن کامل آزاد" else "نسخه آزاد تأیید نشده") })
+                            AssistChip(
+                                onClick = { resultTab = work.accessStatus },
+                                label = {
+                                    Text(when (work.accessStatus) {
+                                        "open" -> "دسترسی آزاد گزارش شده"
+                                        "restricted" -> "نسخه آزاد در منبع یافت نشد"
+                                        else -> "وضعیت دسترسی نامشخص"
+                                    })
+                                }
+                            )
                         }
                         Text(work.title, style = MaterialTheme.typography.titleMedium, fontWeight = FontWeight.SemiBold)
                         if (work.authors.isNotBlank()) Text(work.authors, style = MaterialTheme.typography.bodySmall,
