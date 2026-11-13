@@ -31,12 +31,12 @@ object ResearchExports {
         buildString {
             appendLine("TY  - JOUR")
             appendLine("TI  - " + work.title)
-            if (work.authors.isNotBlank()) work.authors.split(Regex(";|\\\\s+and\\\\s+")).forEach { appendLine("AU  - " + it.trim()) }
+            if (work.authors.isNotBlank()) appendLine("AU  - " + work.authors)
             work.year?.let { appendLine("PY  - $it") }
             if (work.journal.isNotBlank()) appendLine("JO  - " + work.journal)
             if (work.doi.isNotBlank()) appendLine("DO  - " + work.doi)
             if (work.landingUrl.isNotBlank()) appendLine("UR  - " + work.landingUrl)
-            if (work.abstractText.isNotBlank()) appendLine("AB  - " + work.abstractText.replace("\\n", " "))
+            if (work.abstractText.isNotBlank()) appendLine("AB  - " + work.abstractText.replace('\n', ' '))
             appendLine("ER  -")
         }.trimEnd()
     }
