@@ -59,9 +59,11 @@ jobs:
           body: |
             ResearchMate AI Android ${{ steps.app-version.outputs.version }}.
 
-            Fixes the app header so it displays the actual installed version from the Android build configuration (v0.8.1). Retains persistent saved academic searches with the full query profile, date range, provider selection, filters and sorting. Existing research projects, library records, notes and evidence remain intact.
+            Adds bulk article selection (visible, loaded, and sequential retrieval of further result pages), selection-aware RIS export, and stronger scientific-writing deliverable workflows.
 
-            Search continues to use the configured free scholarly providers. No paid API integration is enabled by default.
+            Prompt Studio now explicitly requires a real PDF deliverable and requests an editable Word copy where supported. The Android app can save pasted final research text as an offline, right-to-left PDF or DOCX directly on the device. Existing project and library data remain local.
+
+            Search continues to use configured scholarly providers. No paid API integration is enabled by default. Full-result retrieval is bounded to 30 additional pages per action and reports partial retrieval rather than silently claiming completeness.
 
             This is a debug-signed APK. Uninstall an older build first if Android reports a signature conflict. Back up project data before uninstalling.
           draft: false
