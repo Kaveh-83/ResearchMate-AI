@@ -201,9 +201,13 @@ private fun JSONArray?.toStringList(): List<String> {
     }
 }
 
-fun LiteratureWork.promptText(): String {
+fun LiteratureWork.promptText(maxAbstractChars: Int = 2400): String {
     val age = year?.let { (java.time.Year.now().value - it + 1).coerceAtLeast(1) } ?: 1
     val annualRate = citationCount.toDouble() / age
+    val abstract = abstractText.trim()
+    val safeAbstract = if (abstract.length > maxAbstractChars.coerceAtLeast(0)) {
+        abstract.take(maxAbstractChars.coerceAtLeast(0)) + " … [چکیده کوتاه شده]"
+    } else abstract
     return buildString {
         appendLine("عنوان: $title")
         appendLine("نویسندگان: " + authors.ifBlank { "نامشخص" })
@@ -218,7 +222,7 @@ fun LiteratureWork.promptText(): String {
         appendLine("DOI: " + doi.ifBlank { "ثبت نشده" })
         appendLine("لینک صفحه مقاله: " + landingUrl.ifBlank { "ثبت نشده" })
         appendLine("نسخه دسترسی‌آزاد: " + pdfUrl.ifBlank { "در فراداده منابع پیدا نشد" })
-        appendLine("چکیده: " + abstractText.ifBlank { "در فراداده موجود نیست" })
+        appendLine("چکیده: " + safeAbstract.ifBlank { "در فراداده موجود نیست" })
         appendLine("توجه: تعداد استناد نه کیفیت مقاله است و نه رتبه Q مجله. وضعیت دسترسی نامشخص نیز به معنی قطعی paywall نیست.")
     }
 }
