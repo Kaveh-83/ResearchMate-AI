@@ -17,7 +17,7 @@ import java.io.FileInputStream
 object ScientificHtmlPdfRenderer {
     fun write(context: Context, destination: Uri, markdown: String, title: String, onComplete: (Boolean, String?) -> Unit) {
         val web = WebView(context)
-        val temp = File(context.cacheDir, "rm-\${System.nanoTime()}.pdf")
+        val temp = File(context.cacheDir, "rm-" + System.nanoTime() + ".pdf")
         var done = false
         fun finish(ok: Boolean, error: String? = null) {
             if (done) return
@@ -90,7 +90,7 @@ th{background:#edf0f6;color:#1e3454}thead{display:table-header-group}
 code{font-family:monospace;background:#f1f3f6;padding:1px 4px}
 hr{border:0;border-top:1px solid #d9dee7;margin:20px 0}
 .doc-title{font-size:24pt;font-weight:bold;color:#192b49;margin-bottom:22px}
-</style></head><body><div class="doc-title">\${escape(title.ifBlank { "گزارش پژوهشی" })}</div>\${markdownToHtml(markdown)}</body></html>"""
+</style></head><body><div class="doc-title">""" + escape(title.ifBlank { "گزارش پژوهشی" }) + """</div>""" + markdownToHtml(markdown) + """</body></html>"""
 
     private fun markdownToHtml(source: String): String {
         val out = StringBuilder()
