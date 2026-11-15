@@ -2,6 +2,7 @@ package ai.researchmate.mobile
 
 import android.app.Activity
 import android.content.Context
+import android.content.ContextWrapper
 import android.os.Handler
 import android.os.Looper
 import android.print.PrintAttributes
@@ -26,7 +27,8 @@ object ScientificHtmlPdfRenderer {
         raw: String,
         onComplete: (Boolean, String?) -> Unit
     ) {
-        val activity = context as? Activity
+        val activity = generateSequence(context) { current -> (current as? ContextWrapper)?.baseContext }
+            .filterIsInstance<Activity>().firstOrNull()
         if (activity == null) {
             onComplete(false, "برای چاپ PDF باید برنامه در یک صفحه فعال باز باشد.")
             return
