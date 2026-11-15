@@ -128,8 +128,10 @@ private fun ResearchMateHome() {
         evidence = selectedPaper?.let { db.evidenceForPaper(it.id) } ?: emptyList()
     }
     fun showPrompt(newTopic: String, newPapers: String) {
-        topic = newTopic
-        papersContext = newPapers
+        topic = newTopic.take(500)
+        papersContext = if (newPapers.length > 18_000) {
+            newPapers.take(18_000) + "\n\n[ادامه متن برای جلوگیری از بارگذاری بیش از حد منتقل نشد.]"
+        } else newPapers
         projectId = null
         page = "prompt"
     }
@@ -300,10 +302,10 @@ private fun ResearchMateHome() {
                     "projects" -> ProjectScreen(
                         projects,
                         onBack = { page = "home" },
-                        open = { selected -> topic = selected.topic; papersContext = selected.paperContext; projectId = selected.id; page = "prompt" },
+                        open = { selected -> topic = selected.topic.take(500); papersContext = selected.paperContext.take(18_000); projectId = selected.id; page = "prompt" },
                         delete = { deleted -> ProjectStore.delete(context, deleted.id); reload() }
                     )
-                    "prompt" -> key(topic + papersContext + projectId.orEmpty()) {
+                    "prompt" -> key(projectId.orEmpty(), topic.hashCode(), papersContext.hashCode()) {
                         val old = projects.firstOrNull { it.id == projectId }
                         PromptStudioScreen(
                             old?.topic ?: topic, old?.paperContext ?: papersContext, old?.title.orEmpty(), old?.id,
