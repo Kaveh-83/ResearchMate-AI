@@ -1,85 +1,131 @@
 package ai.researchmate.mobile
 
+import android.app.Activity
 import android.content.Context
-import android.net.Uri
-import android.os.Bundle
-import android.os.CancellationSignal
-import android.os.ParcelFileDescriptor
+import android.os.Handler
+import android.os.Looper
 import android.print.PrintAttributes
-import android.print.PrintDocumentAdapter
-import android.print.PrintDocumentInfo
+import android.print.PrintManager
 import android.webkit.WebView
 import android.webkit.WebViewClient
-import java.io.File
-import java.io.FileInputStream
+import java.util.concurrent.atomic.AtomicBoolean
 
-/** Offline Markdown-to-HTML/CSS-to-PDF renderer. */
+/**
+ * Offline Markdown -> HTML/CSS renderer.
+ *
+ * Android owns PDF pagination through its public PrintManager API. This avoids
+ * calling package-private PrintDocumentAdapter callbacks directly.
+ */
 object ScientificHtmlPdfRenderer {
-    fun write(context: Context, destination: Uri, markdown: String, title: String, onComplete: (Boolean, String?) -> Unit) {
-        val web = WebView(context)
-        val temp = File(context.cacheDir, "rm-" + System.nanoTime() + ".pdf")
-        var done = false
-        fun finish(ok: Boolean, error: String? = null) {
-            if (done) return
-            done = true
-            try { web.stopLoading(); web.destroy() } catch (_: Exception) {}
-            temp.delete()
-            onComplete(ok, error)
+    private var activeWebView: WebView? = null
+    private var activePrintJob: android.print.PrintJob? = null
+    private val mainHandler = Handler(Looper.getMainLooper())
+
+    fun printLegacyPackage(
+        context: Context,
+        raw: String,
+        onComplete: (Boolean, String?) -> Unit
+    ) {
+        val activity = context as? Activity
+        if (activity == null) {
+            onComplete(false, "برای چاپ PDF باید برنامه در یک صفحه فعال باز باشد.")
+            return
         }
+
         try {
+            val report = ScientificDocumentPackage.validate(raw)
+            require(report.valid) { "ساختار سند معتبر نیست؛ محتوای سند را بررسی کن." }
+            val markdown = ScientificDocumentPackage.toMarkdown(raw)
+            val title = ScientificDocumentPackage.title(raw).ifBlank { "گزارش پژوهشی" }
+            printMarkdown(activity, markdown, title, onComplete)
+        } catch (e: Exception) {
+            onComplete(false, e.message ?: "محتوای سند قابل خواندن نیست.")
+        }
+    }
+
+    fun printMarkdown(
+        activity: Activity,
+        markdown: String,
+        title: String,
+        onComplete: (Boolean, String?) -> Unit
+    ) {
+        if (Looper.myLooper() != Looper.getMainLooper()) {
+            mainHandler.post { printMarkdown(activity, markdown, title, onComplete) }
+            return
+        }
+
+        try {
+            val web = WebView(activity)
+            activeWebView?.let { previous ->
+                try { previous.stopLoading(); previous.destroy() } catch (_: Exception) { }
+            }
+            activeWebView = web
+
             web.settings.javaScriptEnabled = false
             web.settings.domStorageEnabled = false
             web.settings.allowFileAccess = false
             web.settings.allowContentAccess = true
+
+            val started = AtomicBoolean(false)
             web.webViewClient = object : WebViewClient() {
                 override fun onPageFinished(view: WebView, url: String?) {
-                    val adapter = view.createPrintDocumentAdapter("ResearchMate")
-                    val attrs = PrintAttributes.Builder().setMediaSize(PrintAttributes.MediaSize.ISO_A4)
-                        .setResolution(PrintAttributes.Resolution("rm", "ResearchMate", 300, 300))
-                        .setMinMargins(PrintAttributes.Margins.NO_MARGINS).build()
-                    adapter.onLayout(null, attrs, CancellationSignal(), object : PrintDocumentAdapter.LayoutResultCallback() {
-                        override fun onLayoutFinished(info: PrintDocumentInfo, changed: Boolean) {
-                            try {
-                                val fd = ParcelFileDescriptor.open(temp, ParcelFileDescriptor.MODE_CREATE or ParcelFileDescriptor.MODE_TRUNCATE or ParcelFileDescriptor.MODE_READ_WRITE)
-                                adapter.onWrite(arrayOf(PrintDocumentAdapter.PageRange.ALL_PAGES), fd, CancellationSignal(),
-                                    object : PrintDocumentAdapter.WriteResultCallback() {
-                                        override fun onWriteFinished(pages: Array<PrintDocumentAdapter.PageRange>) {
-                                            try {
-                                                FileInputStream(temp).use { input ->
-                                                    context.contentResolver.openOutputStream(destination)?.use { input.copyTo(it) }
-                                                        ?: error("امکان ذخیره PDF وجود ندارد.")
-                                                }
-                                                finish(true)
-                                            } catch (e: Exception) { finish(false, e.message ?: "ذخیره PDF ناموفق بود.") }
-                                        }
-                                        override fun onWriteFailed(error: CharSequence?) { finish(false, error?.toString() ?: "تبدیل PDF ناموفق بود.") }
-                                        override fun onWriteCancelled() { finish(false, "ساخت PDF لغو شد.") }
-                                    })
-                            } catch (e: Exception) { finish(false, e.message ?: "آماده‌سازی PDF ناموفق بود.") }
-                        }
-                        override fun onLayoutFailed(error: CharSequence?) { finish(false, error?.toString() ?: "صفحه‌آرایی ناموفق بود.") }
-                        override fun onLayoutCancelled() { finish(false, "صفحه‌آرایی لغو شد.") }
-                    }, Bundle())
+                    if (!started.compareAndSet(false, true)) return
+                    try {
+                        val manager = activity.getSystemService(Context.PRINT_SERVICE) as PrintManager
+                        val adapter = view.createPrintDocumentAdapter("ResearchMate")
+                        val attributes = PrintAttributes.Builder()
+                            .setMediaSize(PrintAttributes.MediaSize.ISO_A4)
+                            .setResolution(PrintAttributes.Resolution("researchmate", "ResearchMate", 300, 300))
+                            .setMinMargins(PrintAttributes.Margins.NO_MARGINS)
+                            .setColorMode(PrintAttributes.COLOR_MODE_COLOR)
+                            .build()
+                        activePrintJob = manager.print(
+                            title.take(80).ifBlank { "ResearchMate" },
+                            adapter,
+                            attributes
+                        )
+                        onComplete(true, null)
+                        watchPrintJob()
+                    } catch (e: Exception) {
+                        onComplete(false, e.message ?: "بازکردن پنجره چاپ PDF ناموفق بود.")
+                        releaseWebView()
+                    }
                 }
             }
-            web.loadDataWithBaseURL("https://researchmate.local/", html(title, markdown), "text/html", "UTF-8", null)
-        } catch (e: Exception) { finish(false, e.message ?: "ساخت PDF ناموفق بود.") }
+            web.loadDataWithBaseURL(
+                "https://researchmate.local/",
+                html(title, markdown),
+                "text/html",
+                "UTF-8",
+                null
+            )
+        } catch (e: Exception) {
+            onComplete(false, e.message ?: "آماده‌سازی سند برای PDF ناموفق بود.")
+            releaseWebView()
+        }
     }
 
-    /** Compatibility bridge used until the JSON editor is migrated to Markdown. */
-    fun writeLegacyPackage(context: Context, destination: Uri, raw: String, onComplete: (Boolean, String?) -> Unit) {
-        try {
-            val report = ScientificDocumentPackage.validate(raw)
-            require(report.valid) { "ساختار سند معتبر نیست؛ محتوای سند را بررسی کن." }
-            write(context, destination, ScientificDocumentPackage.toMarkdown(raw), ScientificDocumentPackage.title(raw), onComplete)
-        } catch (e: Exception) { onComplete(false, e.message ?: "محتوای سند قابل خواندن نیست.") }
+    private fun watchPrintJob() {
+        val job = activePrintJob ?: return
+        if (job.isCompleted || job.isCancelled || job.isFailed) {
+            releaseWebView()
+            return
+        }
+        mainHandler.postDelayed({ watchPrintJob() }, 1500L)
+    }
+
+    private fun releaseWebView() {
+        val web = activeWebView
+        activeWebView = null
+        activePrintJob = null
+        try { web?.stopLoading(); web?.destroy() } catch (_: Exception) { }
     }
 
     private fun html(title: String, markdown: String): String = """<!doctype html><html lang="fa" dir="rtl"><head><meta charset="utf-8">
 <style>
 @page{size:A4;margin:19mm 17mm 20mm}*{box-sizing:border-box}
 body{font-family:sans-serif;color:#202938;font-size:11pt;line-height:1.85;overflow-wrap:anywhere}
-h1{font-size:21pt;color:#192b49;border-bottom:2px solid #7962b8;padding-bottom:8px}
+h1{font-size:21pt;color:#192b49;border-bottom:2px solid #7962b8;padding-bottom:8px;break-after:avoid}
 h2{font-size:16pt;color:#243a5c;margin-top:24px;break-after:avoid}
 h3{font-size:13pt;color:#354b6b;margin-top:18px;break-after:avoid}
 p{margin:0 0 10px;white-space:pre-wrap}ul,ol{padding-inline-start:25px}
@@ -97,17 +143,26 @@ hr{border:0;border-top:1px solid #d9dee7;margin:20px 0}
         val paragraph = mutableListOf<String>()
         val table = mutableListOf<List<String>>()
         var list: String? = null
-        fun flushP() { if (paragraph.isNotEmpty()) { out.append("<p>").append(paragraph.joinToString("<br>") { inline(it) }).append("</p>"); paragraph.clear() } }
+        fun flushP() {
+            if (paragraph.isNotEmpty()) {
+                out.append("<p>").append(paragraph.joinToString("<br>") { inline(it) }).append("</p>")
+                paragraph.clear()
+            }
+        }
         fun closeList() { list?.let { out.append("</").append(it).append(">") }; list = null }
         fun flushTable() {
             if (table.isEmpty()) return
             out.append("<table><tbody>")
             table.forEachIndexed { i, row ->
                 out.append("<tr>")
-                row.forEach { cell -> val tag = if (i == 0) "th" else "td"; out.append("<").append(tag).append(">").append(inline(cell.trim())).append("</").append(tag).append(">") }
+                row.forEach { cell ->
+                    val tag = if (i == 0) "th" else "td"
+                    out.append("<").append(tag).append(">").append(inline(cell.trim())).append("</").append(tag).append(">")
+                }
                 out.append("</tr>")
             }
-            out.append("</tbody></table>"); table.clear()
+            out.append("</tbody></table>")
+            table.clear()
         }
         source.replace("\r\n", "\n").lines().forEach { raw ->
             val line = raw.trim()
@@ -123,11 +178,16 @@ hr{border:0;border-top:1px solid #d9dee7;margin:20px 0}
             if (heading != null) {
                 flushP(); closeList()
                 val n = heading.groupValues[1].length
-                out.append("<h").append(n).append(">").append(inline(heading.groupValues[2])).append("</h").append(n).append(">")
+                out.append("<h").append(n).append(">").append(inline(heading.groupValues[2]))
+                    .append("</h").append(n).append(">")
                 return@forEach
             }
             if (line == "---" || line == "***") { flushP(); closeList(); out.append("<hr>"); return@forEach }
-            if (line.startsWith(">")) { flushP(); closeList(); out.append("<blockquote>").append(inline(line.drop(1).trim())).append("</blockquote>"); return@forEach }
+            if (line.startsWith(">")) {
+                flushP(); closeList()
+                out.append("<blockquote>").append(inline(line.drop(1).trim())).append("</blockquote>")
+                return@forEach
+            }
             val bullet = Regex("^[-*+]\\s+(.+)$").matchEntire(line)
             val numbered = Regex("^\\d+[.)]\\s+(.+)$").matchEntire(line)
             if (bullet != null || numbered != null) {
@@ -137,7 +197,8 @@ hr{border:0;border-top:1px solid #d9dee7;margin:20px 0}
                 out.append("<li>").append(inline((bullet ?: numbered)!!.groupValues[1])).append("</li>")
                 return@forEach
             }
-            closeList(); paragraph += line
+            closeList()
+            paragraph += line
         }
         flushP(); closeList(); flushTable()
         return out.toString()
@@ -149,6 +210,7 @@ hr{border:0;border-top:1px solid #d9dee7;margin:20px 0}
         s = s.replace(Regex("\\*(.+?)\\*"), "<em>$1</em>")
         return s
     }
+
     private fun escape(s: String): String = s.replace("&", "&amp;").replace("<", "&lt;")
         .replace(">", "&gt;").replace("\"", "&quot;").replace("'", "&#39;")
 }
