@@ -59,13 +59,17 @@ jobs:
           body: |
             ResearchMate AI Android ${{ steps.app-version.outputs.version }}.
 
-            Adds bulk article selection (visible, loaded, and sequential retrieval of further result pages), selection-aware RIS export, and stronger scientific-writing deliverable workflows.
+            ResearchMate AI 1.0 introduces the Scientific Document Studio.
 
-            Prompt Studio now explicitly requires a real PDF deliverable and requests an editable Word copy where supported. The Android app can save pasted final research text as an offline, right-to-left PDF or DOCX directly on the device. Existing project and library data remain local.
+            - A strict JSON package contract separates AI-authored content and scientific data from executable code. The app never runs code returned by an AI model.
+            - Offline multi-page PDF composition supports structured sections, references, formatted tables, vector bar/line charts from supplied numeric data, and attached PNG/JPEG/WebP figures.
+            - Package validation checks structure, chart-series lengths, table dimensions, required headings and missing figure/source metadata.
+            - Image attachments are linked to figure IDs and read from local document URIs. Project, library and imported research data remain on-device.
+            - A Persian guide explains each package section, how to request JSON from an AI model, attach figures, validate the package and inspect the resulting PDF.
+            - DOCX export remains a basic editable text/Markdown handoff; embedded chart and image layout is not yet at PDF parity.
 
-            Search continues to use configured scholarly providers. No paid API integration is enabled by default. Full-result retrieval is bounded to 30 additional pages per action and reports partial retrieval rather than silently claiming completeness.
+            No paid AI or publisher API is enabled. The renderer runs locally on Android. Verify source data, references, image permissions and final page layout before academic submission. The app does not verify scientific truth or publication readiness.
 
-            This is a debug-signed APK. Uninstall an older build first if Android reports a signature conflict. Back up project data before uninstalling.
           draft: false
           prerelease: false
           make_latest: true

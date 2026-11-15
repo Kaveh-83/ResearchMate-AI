@@ -118,6 +118,7 @@ private fun ResearchMateHome() {
     var evidence by remember { mutableStateOf(emptyList<EvidenceRecord>()) }
     var pendingDocumentTitle by remember { mutableStateOf("ResearchMate AI") }
     var pendingDocumentText by remember { mutableStateOf("") }
+    var pendingScientificPackage by remember { mutableStateOf("") }
     var pendingSelectedWorks by remember { mutableStateOf(emptyList<LiteratureWork>()) }
 
     fun reload() {
@@ -177,6 +178,26 @@ private fun ResearchMateHome() {
             try {
                 ResearchDocumentExport.writeDocx(context.contentResolver, uri, pendingDocumentTitle, pendingDocumentText)
                 Toast.makeText(context, "فایل Word با موفقیت ذخیره شد.", Toast.LENGTH_LONG).show()
+            } catch (e: Exception) {
+                Toast.makeText(context, "ساخت Word ناموفق بود: " + (e.message ?: ""), Toast.LENGTH_LONG).show()
+            }
+        }
+    }
+    val scientificPdfExport = rememberLauncherForActivityResult(ActivityResultContracts.CreateDocument("application/pdf")) { uri ->
+        if (uri != null) {
+            try {
+                ScientificDocumentExport.writePdf(context.contentResolver, uri, pendingScientificPackage)
+                Toast.makeText(context, "PDF علمی با موفقیت ساخته شد.", Toast.LENGTH_LONG).show()
+            } catch (e: Exception) {
+                Toast.makeText(context, "ساخت PDF علمی ناموفق بود: " + (e.message ?: ""), Toast.LENGTH_LONG).show()
+            }
+        }
+    }
+    val scientificWordExport = rememberLauncherForActivityResult(ActivityResultContracts.CreateDocument("application/vnd.openxmlformats-officedocument.wordprocessingml.document")) { uri ->
+        if (uri != null) {
+            try {
+                ScientificDocumentExport.writeDocx(context.contentResolver, uri, pendingScientificPackage)
+                Toast.makeText(context, "نسخه Word ذخیره شد.", Toast.LENGTH_LONG).show()
             } catch (e: Exception) {
                 Toast.makeText(context, "ساخت Word ناموفق بود: " + (e.message ?: ""), Toast.LENGTH_LONG).show()
             }
@@ -262,6 +283,20 @@ private fun ResearchMateHome() {
                         onBibtex = { bibExport.launch("researchmate-references.bib") },
                         onMarkdown = { markdownExport.launch("researchmate-research-notes.md") }
                     )
+                    "document-studio" -> ScientificDocumentStudioScreen(
+                        onExportPdf = { packageJson ->
+                            pendingScientificPackage = packageJson
+                            val fileTitle = ScientificDocumentPackage.title(packageJson).take(35)
+                                .replace(Regex("[^\\p{L}\\p{N}]+"), "-")
+                            scientificPdfExport.launch("researchmate-scientific-${fileTitle}.pdf")
+                        },
+                        onExportWord = { packageJson ->
+                            pendingScientificPackage = packageJson
+                            val fileTitle = ScientificDocumentPackage.title(packageJson).take(35)
+                                .replace(Regex("[^\\p{L}\\p{N}]+"), "-")
+                            scientificWordExport.launch("researchmate-scientific-${fileTitle}.docx")
+                        }
+                    )
                     "projects" -> ProjectScreen(
                         projects,
                         onBack = { page = "home" },
@@ -311,9 +346,10 @@ private fun ResearchMateHome() {
                         onCompare = { page = "compare" },
                         onIdeas = { page = "ideas" },
                         onProjects = { page = "projects"; reload() },
-                        onPrompt = { showPrompt("", "") }
+                        onPrompt = { showPrompt("", "") },
+                        onDocumentStudio = { page = "document-studio" }
                     )
-                    else -> WorkspaceDashboard(projects.size, library.size, { page = "search" }, { page = "library" }, { page = "compare" }, { page = "ideas" }, { page = "projects" }, { showPrompt("", "") })
+                    else -> WorkspaceDashboard(projects.size, library.size, { page = "search" }, { page = "library" }, { page = "compare" }, { page = "ideas" }, { page = "projects" }, { showPrompt("", "") }, { page = "document-studio" })
                 }
             }
         }
