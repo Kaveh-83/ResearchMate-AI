@@ -18,7 +18,7 @@ import java.util.Locale
 
 @Composable
 fun WorkspaceDashboard(projectsCount: Int, papersCount: Int, onSearch: () -> Unit, onLibrary: () -> Unit,
-    onCompare: () -> Unit, onIdeas: () -> Unit, onProjects: () -> Unit, onPrompt: () -> Unit) {
+    onCompare: () -> Unit, onIdeas: () -> Unit, onProjects: () -> Unit, onPrompt: () -> Unit, onDocumentStudio: () -> Unit) {
     LazyColumn(verticalArrangement = Arrangement.spacedBy(12.dp), contentPadding = PaddingValues(bottom = 20.dp)) {
         item {
             Card(Modifier.fillMaxWidth(), shape = RoundedCornerShape(24.dp),
@@ -45,6 +45,7 @@ fun WorkspaceDashboard(projectsCount: Int, papersCount: Int, onSearch: () -> Uni
         item { ActionCard(Icons.Default.CompareArrows, "مقایسه مقاله‌ها", "مشخصات و شواهد چند مقاله را در یک ماتریس ببین.", "شروع مقایسه", onCompare) }
         item { ActionCard(Icons.Default.Lightbulb, "آزمایشگاه ایده", "نشانه‌های کم‌پوشش را در مجموعه مقاله‌های خودت بررسی کن.", "تحلیل مجموعه", onIdeas) }
         item { ActionCard(Icons.Default.EditNote, "استودیوی نگارش علمی", "پرامپت برای مرور، پروپوزال، نقد، گزارش و پوستر.", "بازکردن استودیو", onPrompt) }
+        item { ActionCard(Icons.Default.PictureAsPdf, "استودیوی ساخت سند علمی", "تبدیل بسته JSON به PDF چندصفحه‌ای همراه نمودار، جدول و تصویر.", "ساخت سند علمی", onDocumentStudio) }
         item { ActionCard(Icons.Default.FolderOpen, "مدیریت پروژه‌ها", "پروژه‌ها و مسیرهای پژوهشی ذخیره‌شده روی دستگاه.", "مدیریت پروژه‌ها", onProjects) }
         item { Text("پروژه‌ها، یادداشت‌ها و کتابخانه روی دستگاه نگهداری می‌شوند. جست‌وجوی مقاله به اینترنت نیاز دارد.",
             style = MaterialTheme.typography.labelSmall, color = MaterialTheme.colorScheme.onSurfaceVariant) }
