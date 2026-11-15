@@ -35,9 +35,8 @@ object ScientificHtmlPdfRenderer {
         try {
             val report = ScientificDocumentPackage.validate(raw)
             require(report.valid) { "ساختار سند معتبر نیست؛ محتوای سند را بررسی کن." }
-            val markdown = ScientificDocumentPackage.toMarkdown(raw)
             val title = ScientificDocumentPackage.title(raw).ifBlank { "گزارش پژوهشی" }
-            printMarkdown(activity, markdown, title, onComplete)
+            printHtml(activity, title, ScientificHtmlPackageBuilder.build(raw), onComplete)
         } catch (e: Exception) {
             onComplete(false, e.message ?: "محتوای سند قابل خواندن نیست.")
         }
@@ -48,9 +47,16 @@ object ScientificHtmlPdfRenderer {
         markdown: String,
         title: String,
         onComplete: (Boolean, String?) -> Unit
+    ) = printHtml(activity, title, markdownToHtml(markdown), onComplete)
+
+    private fun printHtml(
+        activity: Activity,
+        title: String,
+        bodyHtml: String,
+        onComplete: (Boolean, String?) -> Unit
     ) {
         if (Looper.myLooper() != Looper.getMainLooper()) {
-            mainHandler.post { printMarkdown(activity, markdown, title, onComplete) }
+            mainHandler.post { printHtml(activity, title, bodyHtml, onComplete) }
             return
         }
 
@@ -94,7 +100,7 @@ object ScientificHtmlPdfRenderer {
             }
             web.loadDataWithBaseURL(
                 "https://researchmate.local/",
-                html(title, markdown),
+                html(title, bodyHtml),
                 "text/html",
                 "UTF-8",
                 null
@@ -121,7 +127,7 @@ object ScientificHtmlPdfRenderer {
         try { web?.stopLoading(); web?.destroy() } catch (_: Exception) { }
     }
 
-    private fun html(title: String, markdown: String): String = """<!doctype html><html lang="fa" dir="rtl"><head><meta charset="utf-8">
+    private fun html(title: String, bodyHtml: String): String = """<!doctype html><html lang="fa" dir="rtl"><head><meta charset="utf-8">
 <style>
 @page{size:A4;margin:19mm 17mm 20mm}*{box-sizing:border-box}
 body{font-family:sans-serif;color:#202938;font-size:11pt;line-height:1.85;overflow-wrap:anywhere}
@@ -136,7 +142,23 @@ th{background:#edf0f6;color:#1e3454}thead{display:table-header-group}
 code{font-family:monospace;background:#f1f3f6;padding:1px 4px}
 hr{border:0;border-top:1px solid #d9dee7;margin:20px 0}
 .doc-title{font-size:24pt;font-weight:bold;color:#192b49;margin-bottom:22px}
-</style></head><body><div class="doc-title">""" + escape(title.ifBlank { "گزارش پژوهشی" }) + """</div>""" + markdownToHtml(markdown) + """</body></html>"""
+.subtitle{text-align:center;color:#596579;margin-bottom:18px}
+.keywords{color:#45536b}
+figure{margin:18px 0;break-inside:avoid}
+figcaption{font-weight:bold;color:#243a5c;margin:8px 0}
+.chart-svg{width:100%;height:auto;max-height:360px;overflow:visible}
+.chart-svg text{font-size:12px;fill:#4c5668}
+.legend{display:flex;flex-wrap:wrap;gap:14px;justify-content:center;font-size:9pt}
+.legend span{display:inline-flex;align-items:center;gap:5px}
+.legend i{display:inline-block;width:10px;height:10px;border-radius:2px}
+.attached-figure{display:block;max-width:100%;max-height:270mm;object-fit:contain;margin:10px auto}
+.figure-placeholder{padding:18px;border:1px dashed #aab3c2;background:#f5f7fa;border-radius:6px}
+.equation{padding:12px 16px;margin:12px 0;background:#f1f4f8;border-radius:6px;break-inside:avoid}
+.equation div{text-align:center;font-family:serif;font-size:12pt;padding-top:6px}
+.source{font-size:8.5pt;color:#667085}
+.references{padding-inline-start:26px}
+.references li{margin:6px 0;overflow-wrap:anywhere}
+</style></head><body><div class="doc-title">""" + escape(title.ifBlank { "گزارش پژوهشی" }) + """</div>""" + bodyHtml + """</body></html>"""
 
     private fun markdownToHtml(source: String): String {
         val out = StringBuilder()
