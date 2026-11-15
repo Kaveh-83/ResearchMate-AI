@@ -31,10 +31,13 @@ object ScientificDocumentPackage {
         val missingImages = mutableListOf<String>()
 
         val root = try {
-            JSONObject(raw)
+            parseRoot(raw)
         } catch (e: Exception) {
+            val position = Regex("character\\s+(\\d+)", RegexOption.IGNORE_CASE)
+                .find(e.message.orEmpty())?.groupValues?.getOrNull(1)
+            val detail = if (position != null) " (محل تقریبی خطا: نویسه $position)" else ""
             return ScientificPackageReport(false, "", 0, 0, 0, 0, 0, emptyList(),
-                listOf("ساختار JSON معتبر نیست: " + (e.message ?: "خطای تجزیه")), emptyList())
+                listOf("قالب اطلاعات سند قابل خواندن نیست. احتمالاً بخشی از JSON ناقص یا دارای نشانه‌گذاری نادرست است.$detail برای اصلاح، از گزینه «اصلاح خودکار قالب» استفاده کن."), emptyList())
         }
 
         if (root.optString("schema_version") != VERSION) errors += "schema_version باید برابر 1.0 باشد."
@@ -152,6 +155,34 @@ object ScientificDocumentPackage {
             referenceCount = references, missingImageIds = missingImages,
             errors = errors.distinct(), warnings = warnings.distinct()
         )
+    }
+
+    private fun parseRoot(raw: String): JSONObject {
+        val cleaned = cleanJsonEnvelope(raw)
+        try { return JSONObject(cleaned) } catch (_: Exception) { }
+        val withoutTrailingCommas = cleaned.replace(Regex(",\\s*([}\\]])"), "$1")
+        return JSONObject(withoutTrailingCommas)
+    }
+
+    fun repairFormatting(raw: String): String {
+        val cleaned = cleanJsonEnvelope(raw)
+        val root = try {
+            JSONObject(cleaned)
+        } catch (_: Exception) {
+            JSONObject(cleaned.replace(Regex(",\\s*([}\\]])"), "$1"))
+        }
+        return root.toString(2)
+    }
+
+    private fun cleanJsonEnvelope(raw: String): String {
+        var value = raw.trim().removePrefix("\uFEFF")
+        value = value.replace(Regex("^\\s*```(?:json)?\\s*", RegexOption.IGNORE_CASE), "")
+            .replace(Regex("\\s*```\\s*$"), "")
+            .trim()
+        val start = value.indexOf('{')
+        val end = value.lastIndexOf('}')
+        if (start >= 0 && end > start) value = value.substring(start, end + 1)
+        return value
     }
 
     fun figureIds(raw: String): List<String> = try {
