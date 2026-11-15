@@ -130,6 +130,17 @@ fun ScientificDocumentStudioScreen(
                         report = ScientificDocumentPackage.validate(raw)
                         status = "قالب نمونه بازیابی شد."
                     }, modifier = Modifier.weight(1f)) { Text("بازنشانی نمونه") }
+                    OutlinedButton(onClick = {
+                        try {
+                            raw = ScientificDocumentPackage.repairFormatting(raw)
+                            report = ScientificDocumentPackage.validate(raw)
+                            status = if (report.valid) "قالب JSON اصلاح و تأیید شد؛ متن مقاله حفظ شده است."
+                                else "قالب‌بندی اصلاح شد، اما چند ایراد محتوایی/ساختاری باقی مانده است."
+                        } catch (_: Exception) {
+                            report = ScientificDocumentPackage.validate(raw)
+                            status = "اصلاح خودکار ممکن نشد؛ متن اصلی حفظ شده است. خروجی JSON را دوباره از هوش مصنوعی دریافت کن."
+                        }
+                    }, modifier = Modifier.weight(1f)) { Text("اصلاح خودکار قالب") }
                     Button(onClick = {
                         report = ScientificDocumentPackage.validate(raw)
                         status = if (report.valid) "ساختار بسته معتبر است." else "خطاهای ساختاری را برطرف کن."
