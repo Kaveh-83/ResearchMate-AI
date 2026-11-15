@@ -468,10 +468,11 @@ object ScientificDocumentExport {
             ensureSpace(layout.height + 16f)
             val rect = RectF(margin, y, pageWidth - margin, y + layout.height + 14f)
             canvas?.drawRoundRect(rect, 6f, 6f, Paint(Paint.ANTI_ALIAS_FLAG).apply { color = Color.rgb(240, 243, 248) })
-            canvas?.save()
-            canvas?.translate(margin + 10f, y + 7f)
-            layout.draw(canvas)
-            canvas?.restore()
+            val formulaCanvas = canvas ?: return
+            formulaCanvas.save()
+            formulaCanvas.translate(margin + 10f, y + 7f)
+            layout.draw(formulaCanvas)
+            formulaCanvas.restore()
             y = rect.bottom + 12f
         }
     }
