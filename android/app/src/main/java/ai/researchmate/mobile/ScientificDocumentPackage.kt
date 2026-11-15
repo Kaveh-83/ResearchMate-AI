@@ -117,13 +117,16 @@ object ScientificDocumentPackage {
 
         val figureArray = root.optJSONArray("figures") ?: JSONArray()
         figures = figureArray.length()
+        val seenFigureIds = mutableSetOf<String>()
         for (i in 0 until figureArray.length()) {
             val figure = figureArray.optJSONObject(i)
             if (figure == null) {
                 errors += "شکل شماره " + (i + 1) + " ساختار شیء ندارد."
                 continue
             }
-            val id = figure.optString("id").ifBlank { "figure_" + (i + 1) }
+            val id = figure.optString("id").trim()
+            if (id.isBlank()) errors += "شکل شماره " + (i + 1) + ": شناسه یکتا لازم است."
+            else if (!seenFigureIds.add(id)) errors += "شناسه شکل تکراری است: " + id + "."
             if (figure.optString("image_uri").isBlank()) {
                 missingImages += id
                 warnings += "برای شکل «" + id + "» هنوز تصویر پیوست نشده است؛ در PDF فقط شرح شکل می‌آید."
