@@ -187,11 +187,9 @@ private fun ResearchMateHome() {
     }
     val scientificPdfExport = rememberLauncherForActivityResult(ActivityResultContracts.CreateDocument("application/pdf")) { uri ->
         if (uri != null) {
-            try {
-                ScientificDocumentExport.writePdf(context.contentResolver, uri, pendingScientificPackage)
-                Toast.makeText(context, "PDF علمی با موفقیت ساخته شد.", Toast.LENGTH_LONG).show()
-            } catch (e: Exception) {
-                Toast.makeText(context, "ساخت PDF علمی ناموفق بود: " + (e.message ?: ""), Toast.LENGTH_LONG).show()
+            ScientificHtmlPdfRenderer.writeLegacyPackage(context, uri, pendingScientificPackage) { success, error ->
+                val message = if (success) "PDF علمی با موفقیت ساخته شد." else "ساخت PDF ناموفق بود. متن مقاله حفظ شده است."
+                Toast.makeText(context, message, Toast.LENGTH_LONG).show()
             }
         }
     }
