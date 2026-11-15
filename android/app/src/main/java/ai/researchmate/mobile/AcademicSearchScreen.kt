@@ -500,8 +500,27 @@ fun AcademicSearchScreen(onPrompt: (String, String) -> Unit, onSave: (Literature
                             Text("${selected.size} مقاله انتخاب شده")
                             Button(onClick = {
                                 val chosen = results.filter { it.id in selected }
-                                onPrompt(if (chosen.size == 1) chosen.first().title else query,
-                                    chosen.joinToString("\n\n---\n\n") { it.promptText() })
+                                val transfer = chosen.take(10)
+                                val writingContext = buildString {
+                                    appendLine("تعداد مقاله‌های انتخاب‌شده: ${chosen.size}")
+                                    appendLine("تعداد مقاله‌های منتقل‌شده: ${transfer.size}")
+                                    if (chosen.size > transfer.size) {
+                                        appendLine("توجه: برای جلوگیری از بسته‌شدن برنامه، فقط ۱۰ مقاله اول منتقل شده‌اند. بقیه را در نوبت بعدی ارسال کن.")
+                                    }
+                                    transfer.forEachIndexed { index, work ->
+                                        appendLine()
+                                        appendLine("===== مقاله ${index + 1} =====")
+                                        append(work.promptText(maxAbstractChars = 900))
+                                    }
+                                }
+                                if (chosen.size > transfer.size) {
+                                    android.widget.Toast.makeText(
+                                        context,
+                                        "از ${chosen.size} مقاله، ۱۰ مقاله اول به کارگاه منتقل شد.",
+                                        android.widget.Toast.LENGTH_LONG
+                                    ).show()
+                                }
+                                onPrompt(if (chosen.size == 1) chosen.first().title else query, writingContext)
                             }, modifier = Modifier.fillMaxWidth()) { Text("انتقال به استودیوی نگارش") }
                             OutlinedButton(onClick = {
                                 results.filter { it.id in selected }.forEach(onSave)
@@ -588,7 +607,7 @@ fun AcademicSearchScreen(onPrompt: (String, String) -> Unit, onSave: (Literature
                                 }
                             }
                         }
-                        Button(onClick = { onPrompt(work.title, work.promptText()) }, modifier = Modifier.fillMaxWidth()) {
+                        Button(onClick = { onPrompt(work.title, work.promptText(maxAbstractChars = 3000)) }, modifier = Modifier.fillMaxWidth()) {
                             Text("ارسال به استودیوی نگارش")
                         }
                     }
