@@ -185,9 +185,9 @@ object ScientificDocumentExport {
             val parts = normalized.split(Regex("\n{2,}"))
             for (part in parts) {
                 val clean = part.trim()
-                    .replace(Regex("^\s*[-*]\s+", RegexOption.MULTILINE), "• ")
-                    .replace(Regex("\*\*(.*?)\*\*"), "$1")
-                    .replace(Regex("(?m)^>\s?"), "  ")
+                    .replace(Regex("^\\s*[-*]\\s+", RegexOption.MULTILINE), "• ")
+                    .replace(Regex("\\*\\*(.*?)\\*\\*"), "$1")
+                    .replace(Regex("(?m)^>\\s?"), "  ")
                 if (clean.isNotBlank()) addText(clean, 10.2f, false, textColor, 8f)
             }
         }
