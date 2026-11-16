@@ -7,7 +7,7 @@ ResearchMate AI is a Persian-first native Android research workspace built with 
 The scientific document workflow is Markdown-first. The manuscript is edited as plain Markdown; title, abstract and keywords are separate fields; tables, charts, figures, equations and references remain structured data.
 
 - Automatic local draft persistence in app preferences; no cloud upload is used for document content.
-- Import legacy schema 1.0 JSON packages, edit the manuscript in Markdown, and export the complete structured package as JSON for backup.
+- Import legacy schema 1.0 JSON packages, edit the manuscript in Markdown, and export structured JSON. JSON keeps image URIs, not image bytes; save PDF/DOCX as well when archiving figures.
 - Offline HTML/CSS to PDF rendering through Android WebView and the public PrintManager API. The Android print dialog offers Save as PDF.
 - PDF HTML layout includes A4 styling, RTL text, Markdown tables, structured tables, SVG charts, content-URI figures, equations and references.
 - Separate DOCX writer creates native Word tables, embeds PNG figures and generated chart images, and retains editable text, headings, equations and references.
