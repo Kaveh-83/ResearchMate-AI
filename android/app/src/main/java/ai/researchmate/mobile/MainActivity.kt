@@ -185,6 +185,10 @@ private fun ResearchMateHome() {
             }
         }
     }
+    var pendingScientificMarkdown by remember { mutableStateOf("") }
+    val scientificMarkdownExport = rememberLauncherForActivityResult(ActivityResultContracts.CreateDocument("text/markdown")) { uri ->
+        if (uri != null) writeText(context, uri, pendingScientificMarkdown)
+    }
     val scientificWordExport = rememberLauncherForActivityResult(ActivityResultContracts.CreateDocument("application/vnd.openxmlformats-officedocument.wordprocessingml.document")) { uri ->
         if (uri != null) {
             try {
@@ -289,6 +293,11 @@ private fun ResearchMateHome() {
                             val fileTitle = ScientificDocumentPackage.title(packageJson).take(35)
                                 .replace(Regex("[^\\p{L}\\p{N}]+"), "-")
                             scientificWordExport.launch("researchmate-scientific-${fileTitle}.docx")
+                        },
+                        onExportMarkdown = { documentTitle, markdown ->
+                            pendingScientificMarkdown = markdown
+                            val fileTitle = documentTitle.take(35).replace(Regex("[^\\p{L}\\p{N}]+"), "-")
+                            scientificMarkdownExport.launch("researchmate-${fileTitle}.md")
                         }
                     )
                     "projects" -> ProjectScreen(
