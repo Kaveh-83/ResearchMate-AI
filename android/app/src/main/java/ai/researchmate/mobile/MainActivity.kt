@@ -189,6 +189,9 @@ private fun ResearchMateHome() {
     val scientificMarkdownExport = rememberLauncherForActivityResult(ActivityResultContracts.CreateDocument("text/markdown")) { uri ->
         if (uri != null) writeText(context, uri, pendingScientificMarkdown)
     }
+    val scientificPackageExport = rememberLauncherForActivityResult(ActivityResultContracts.CreateDocument("application/json")) { uri ->
+        if (uri != null) writeText(context, uri, pendingScientificPackage)
+    }
     val scientificWordExport = rememberLauncherForActivityResult(ActivityResultContracts.CreateDocument("application/vnd.openxmlformats-officedocument.wordprocessingml.document")) { uri ->
         if (uri != null) {
             try {
@@ -298,6 +301,12 @@ private fun ResearchMateHome() {
                             pendingScientificMarkdown = markdown
                             val fileTitle = documentTitle.take(35).replace(Regex("[^\\p{L}\\p{N}]+"), "-")
                             scientificMarkdownExport.launch("researchmate-${fileTitle}.md")
+                        },
+                        onExportPackage = { packageJson ->
+                            pendingScientificPackage = packageJson
+                            val fileTitle = ScientificDocumentPackage.title(packageJson).take(35)
+                                .replace(Regex("[^\\p{L}\\p{N}]+"), "-")
+                            scientificPackageExport.launch("researchmate-package-${fileTitle}.json")
                         }
                     )
                     "projects" -> ProjectScreen(
