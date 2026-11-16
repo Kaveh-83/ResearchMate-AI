@@ -86,6 +86,19 @@ class ScientificDocumentPackageTest {
         assertTrue(html.contains("figure-placeholder"))
     }
 
+    @Test fun markdownTablesRenderAsNativeHtmlAndRawHtmlIsEscaped() {
+        val input = ScientificDocumentPackage.fromEditor(
+            "Title", "Abstract", "steel",
+            "# Results\n\n| Model | R2 |\n| --- | --- |\n| CatBoost | 0.818 |\n\n<script>alert(1)</script>",
+            validPackage()
+        )
+        val html = ScientificHtmlPackageBuilder.build(input)
+        assertTrue(html.contains("<th>Model</th>"))
+        assertTrue(html.contains("<td>CatBoost</td>"))
+        assertFalse(html.contains("<script>"))
+        assertTrue(html.contains("&lt;script&gt;"))
+    }
+
     @Test fun unsafeRemoteImageUriIsNotRenderedAsAnImage() {
         val packageWithRemoteImage = validPackage().replace(
             "\"source\":\"AI schematic\"",
