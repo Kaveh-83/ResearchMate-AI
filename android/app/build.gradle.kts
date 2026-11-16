@@ -11,8 +11,8 @@ android {
   applicationId="ai.researchmate.mobile"
   minSdk=26
   targetSdk=36
-  versionCode=13
-  versionName="1.0.2"
+  versionCode=14
+  versionName="1.0.3"
  }
  buildTypes { release { isMinifyEnabled=true; proguardFiles(getDefaultProguardFile("proguard-android-optimize.txt"),"proguard-rules.pro") } }
  compileOptions { sourceCompatibility=JavaVersion.VERSION_17; targetCompatibility=JavaVersion.VERSION_17 }
@@ -29,5 +29,7 @@ dependencies {
  implementation("androidx.compose.foundation:foundation")
  implementation("androidx.compose.material:material-icons-extended")
  implementation("org.jetbrains.kotlinx:kotlinx-coroutines-android:1.10.2")
+ testImplementation("junit:junit:4.13.2")
+ testImplementation("org.json:json:20250517")
  debugImplementation("androidx.compose.ui:ui-tooling")
 }

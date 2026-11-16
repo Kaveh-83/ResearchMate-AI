@@ -106,8 +106,7 @@ object ScientificDocumentExport {
     }
 
     fun writeDocx(resolver: ContentResolver, uri: Uri, rawPackage: String) {
-        val title = ScientificDocumentPackage.title(rawPackage)
-        ResearchDocumentExport.writeDocx(resolver, uri, title, ScientificDocumentPackage.toMarkdown(rawPackage))
+        ScientificDocxWriter.write(resolver, uri, rawPackage)
     }
 
     private class PdfFlow(private val document: PdfDocument) {

@@ -185,15 +185,12 @@ private fun ResearchMateHome() {
             }
         }
     }
-    val scientificPdfExport = rememberLauncherForActivityResult(ActivityResultContracts.CreateDocument("application/pdf")) { uri ->
-        if (uri != null) {
-            try {
-                ScientificDocumentExport.writePdf(context.contentResolver, uri, pendingScientificPackage)
-                Toast.makeText(context, "PDF علمی با موفقیت ساخته شد.", Toast.LENGTH_LONG).show()
-            } catch (e: Exception) {
-                Toast.makeText(context, "ساخت PDF علمی ناموفق بود: " + (e.message ?: ""), Toast.LENGTH_LONG).show()
-            }
-        }
+    var pendingScientificMarkdown by remember { mutableStateOf("") }
+    val scientificMarkdownExport = rememberLauncherForActivityResult(ActivityResultContracts.CreateDocument("text/markdown")) { uri ->
+        if (uri != null) writeText(context, uri, pendingScientificMarkdown)
+    }
+    val scientificPackageExport = rememberLauncherForActivityResult(ActivityResultContracts.CreateDocument("application/json")) { uri ->
+        if (uri != null) writeText(context, uri, pendingScientificPackage)
     }
     val scientificWordExport = rememberLauncherForActivityResult(ActivityResultContracts.CreateDocument("application/vnd.openxmlformats-officedocument.wordprocessingml.document")) { uri ->
         if (uri != null) {
@@ -288,15 +285,28 @@ private fun ResearchMateHome() {
                     "document-studio" -> ScientificDocumentStudioScreen(
                         onExportPdf = { packageJson ->
                             pendingScientificPackage = packageJson
-                            val fileTitle = ScientificDocumentPackage.title(packageJson).take(35)
-                                .replace(Regex("[^\\p{L}\\p{N}]+"), "-")
-                            scientificPdfExport.launch("researchmate-scientific-${fileTitle}.pdf")
+                            ScientificHtmlPdfRenderer.printLegacyPackage(context, packageJson) { success, error ->
+                                val message = if (success) "پنجره چاپ باز شد؛ برای ذخیره، گزینه Save as PDF را انتخاب کن."
+                                    else "آماده‌سازی PDF ناموفق بود: " + (error ?: "خطای نامشخص")
+                                Toast.makeText(context, message, Toast.LENGTH_LONG).show()
+                            }
                         },
                         onExportWord = { packageJson ->
                             pendingScientificPackage = packageJson
                             val fileTitle = ScientificDocumentPackage.title(packageJson).take(35)
                                 .replace(Regex("[^\\p{L}\\p{N}]+"), "-")
                             scientificWordExport.launch("researchmate-scientific-${fileTitle}.docx")
+                        },
+                        onExportMarkdown = { documentTitle, markdown ->
+                            pendingScientificMarkdown = markdown
+                            val fileTitle = documentTitle.take(35).replace(Regex("[^\\p{L}\\p{N}]+"), "-")
+                            scientificMarkdownExport.launch("researchmate-${fileTitle}.md")
+                        },
+                        onExportPackage = { packageJson ->
+                            pendingScientificPackage = packageJson
+                            val fileTitle = ScientificDocumentPackage.title(packageJson).take(35)
+                                .replace(Regex("[^\\p{L}\\p{N}]+"), "-")
+                            scientificPackageExport.launch("researchmate-package-${fileTitle}.json")
                         }
                     )
                     "projects" -> ProjectScreen(
