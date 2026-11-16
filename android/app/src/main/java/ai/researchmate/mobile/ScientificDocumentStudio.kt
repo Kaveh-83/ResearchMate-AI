@@ -43,7 +43,8 @@ private const val DOCUMENT_JSON_TEMPLATE = """{
 fun ScientificDocumentStudioScreen(
     onExportPdf: (String) -> Unit,
     onExportWord: (String) -> Unit,
-    onExportMarkdown: (String, String) -> Unit
+    onExportMarkdown: (String, String) -> Unit,
+    onExportPackage: (String) -> Unit
 ) {
     val context = LocalContext.current
     val preferences = remember { context.getSharedPreferences("scientific_document_studio", Context.MODE_PRIVATE) }
@@ -86,6 +87,26 @@ fun ScientificDocumentStudioScreen(
             }
         }
         pendingImageId = null
+    }
+
+    val packagePicker = rememberLauncherForActivityResult(ActivityResultContracts.OpenDocument()) { uri ->
+        if (uri != null) {
+            try {
+                val importedRaw = context.contentResolver.openInputStream(uri)?.bufferedReader(Charsets.UTF_8)?.use { it.readText() }
+                    ?: error("خواندن فایل JSON ممکن نشد.")
+                val importedReport = ScientificDocumentPackage.validate(importedRaw)
+                require(importedReport.valid) { importedReport.errors.joinToString("\n") }
+                basePackage = importedRaw
+                title = ScientificDocumentPackage.editorTitle(importedRaw)
+                abstractText = ScientificDocumentPackage.editorAbstract(importedRaw)
+                keywordsText = ScientificDocumentPackage.editorKeywords(importedRaw)
+                markdown = ScientificDocumentPackage.editorMarkdown(importedRaw)
+                advancedJson = importedRaw
+                status = "بسته علمی وارد شد و پیش‌نویس فعلی با محتوای آن جایگزین شد."
+            } catch (e: Exception) {
+                status = "ورود فایل ناموفق بود: " + (e.message ?: "فایل نامعتبر")
+            }
+        }
     }
 
     val figures = remember(editorPackage) { ScientificDocumentPackage.figureIds(editorPackage) }
@@ -227,6 +248,14 @@ fun ScientificDocumentStudioScreen(
                     }
                 }
                 if (advancedOpen) {
+                    OutlinedButton(
+                        onClick = { packagePicker.launch(arrayOf("application/json", "text/json")) },
+                        modifier = Modifier.fillMaxWidth()
+                    ) {
+                        Icon(Icons.Default.FolderOpen, null)
+                        Spacer(Modifier.width(7.dp))
+                        Text("انتخاب فایل بسته JSON از گوشی")
+                    }
                     Text(
                         "برای انتقال یک بسته JSON قدیمی یا ویرایش مستقیم جدول‌ها، نمودارها، معادلات و منابع از این بخش استفاده کن. پس از واردکردن، متن مقاله به ویرایشگر Markdown منتقل می‌شود.",
                         style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant
@@ -284,6 +313,11 @@ fun ScientificDocumentStudioScreen(
                     Icon(Icons.Default.Article, null)
                     Spacer(Modifier.width(7.dp))
                     Text("خروجی Markdown مقاله")
+                }
+                OutlinedButton(onClick = { onExportPackage(editorPackage) }, modifier = Modifier.fillMaxWidth()) {
+                    Icon(Icons.Default.DataObject, null)
+                    Spacer(Modifier.width(7.dp))
+                    Text("پشتیبان کامل بسته علمی JSON")
                 }
                 OutlinedButton(onClick = {
                     basePackage = DOCUMENT_JSON_TEMPLATE
