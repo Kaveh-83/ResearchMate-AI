@@ -306,6 +306,98 @@ object ScientificDocumentPackage {
         }
     }
 
+    /** Canonical editor adapter: Markdown is the manuscript source; structured assets stay in separate arrays. */
+    fun fromEditor(
+        title: String,
+        abstractText: String,
+        keywordsText: String,
+        markdown: String,
+        structuredPackage: String
+    ): String {
+        val root = try { parseRoot(structuredPackage) } catch (_: Exception) {
+            JSONObject().put("schema_version", VERSION)
+                .put("document", JSONObject())
+                .put("manuscript", JSONObject())
+        }
+        root.put("schema_version", VERSION)
+        val document = root.optJSONObject("document") ?: JSONObject()
+        document.put("title", title.trim().ifBlank { "گزارش پژوهشی" })
+        if (!document.has("language")) document.put("language", "fa")
+        if (!document.has("citation_style")) document.put("citation_style", "APA 7")
+        root.put("document", document)
+
+        val manuscript = root.optJSONObject("manuscript") ?: JSONObject()
+        manuscript.put("abstract", abstractText.trim())
+        val keywords = JSONArray()
+        keywordsText.split(',', '،', ';', '؛').map { it.trim() }.filter { it.isNotBlank() }
+            .distinct().forEach { keywords.put(it) }
+        manuscript.put("keywords", keywords)
+        manuscript.put("sections", markdownSections(markdown))
+        root.put("manuscript", manuscript)
+
+        listOf("tables", "charts", "figures", "equations", "references").forEach { key ->
+            if (!root.has(key) || root.isNull(key)) root.put(key, JSONArray())
+        }
+        return root.toString(2)
+    }
+
+    fun editorTitle(raw: String): String = try {
+        parseRoot(raw).optJSONObject("document")?.optString("title")?.takeIf { it.isNotBlank() } ?: "گزارش پژوهشی"
+    } catch (_: Exception) { "گزارش پژوهشی" }
+
+    fun editorAbstract(raw: String): String = try {
+        parseRoot(raw).optJSONObject("manuscript")?.optString("abstract").orEmpty()
+    } catch (_: Exception) { "" }
+
+    fun editorKeywords(raw: String): String = try {
+        val values = parseRoot(raw).optJSONObject("manuscript")?.optJSONArray("keywords") ?: JSONArray()
+        (0 until values.length()).joinToString("، ") { values.optString(it) }
+    } catch (_: Exception) { "" }
+
+    fun editorMarkdown(raw: String): String = try {
+        val manuscript = parseRoot(raw).optJSONObject("manuscript") ?: JSONObject()
+        val sections = manuscript.optJSONArray("sections") ?: JSONArray()
+        buildString {
+            for (i in 0 until sections.length()) {
+                val section = sections.optJSONObject(i) ?: continue
+                if (isNotEmpty()) appendLine().appendLine()
+                val level = section.optInt("level", 1).coerceIn(1, 3)
+                append("#".repeat(level)).append(' ').append(section.optString("heading"))
+                appendLine().append(section.optString("content"))
+            }
+        }
+    } catch (_: Exception) { "" }
+
+    private fun markdownSections(markdown: String): JSONArray {
+        val result = JSONArray()
+        var heading = "متن مقاله"
+        var level = 1
+        val body = StringBuilder()
+        fun flush() {
+            val content = body.toString().trim()
+            if (content.isNotBlank()) {
+                result.put(JSONObject().put("heading", heading).put("level", level).put("content", content))
+            }
+            body.clear()
+        }
+        markdown.replace("\r\n", "\n").replace('\r', '\n').lines().forEach { line ->
+            val match = Regex("^(#{1,3})\\s+(.+)$").matchEntire(line.trim())
+            if (match != null) {
+                flush()
+                level = match.groupValues[1].length
+                heading = match.groupValues[2].trim()
+            } else {
+                body.append(line).append('\n')
+            }
+        }
+        flush()
+        if (result.length() == 0) {
+            result.put(JSONObject().put("heading", "متن مقاله").put("level", 1)
+                .put("content", markdown.trim().ifBlank { "متن مقاله را وارد کن." }))
+        }
+        return result
+    }
+
     fun prompt(): String = """
 نقش تو: نویسنده و طراح حرفه‌ای اسناد علمی. خروجی را مطابق قرارداد JSON زیر تولید کن تا برنامه ResearchMate AI آن را به PDF صفحه‌آرایی‌شده تبدیل کند.
 
