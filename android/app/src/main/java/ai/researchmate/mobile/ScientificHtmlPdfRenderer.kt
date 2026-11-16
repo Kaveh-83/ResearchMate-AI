@@ -9,6 +9,8 @@ import android.print.PrintAttributes
 import android.print.PrintManager
 import android.webkit.WebView
 import android.webkit.WebViewClient
+import android.webkit.WebResourceRequest
+import android.webkit.WebResourceError
 import java.util.concurrent.atomic.AtomicBoolean
 
 /**
@@ -21,6 +23,7 @@ object ScientificHtmlPdfRenderer {
     private var activeWebView: WebView? = null
     private var activePrintJob: android.print.PrintJob? = null
     private val mainHandler = Handler(Looper.getMainLooper())
+    private var printPollCount = 0
 
     fun printLegacyPackage(
         context: Context,
@@ -73,9 +76,26 @@ object ScientificHtmlPdfRenderer {
             web.settings.domStorageEnabled = false
             web.settings.allowFileAccess = false
             web.settings.allowContentAccess = true
+            web.settings.blockNetworkLoads = true
+            web.settings.allowFileAccessFromFileURLs = false
+            web.settings.allowUniversalAccessFromFileURLs = false
+            web.settings.databaseEnabled = false
 
             val started = AtomicBoolean(false)
             web.webViewClient = object : WebViewClient() {
+                override fun onReceivedError(view: WebView, request: WebResourceRequest, error: WebResourceError) {
+                    if (request.isForMainFrame && started.compareAndSet(false, true)) {
+                        onComplete(false, "بارگذاری محتوای سند ناموفق بود: " + error.description)
+                        releaseWebView()
+                    }
+                }
+
+                override fun onRenderProcessGone(view: WebView, detail: android.webkit.RenderProcessGoneDetail): Boolean {
+                    if (started.compareAndSet(false, true)) onComplete(false, "فرایند نمایش سند متوقف شد؛ دوباره تلاش کن.")
+                    releaseWebView()
+                    return true
+                }
+
                 override fun onPageFinished(view: WebView, url: String?) {
                     if (!started.compareAndSet(false, true)) return
                     try {
@@ -93,6 +113,7 @@ object ScientificHtmlPdfRenderer {
                             attributes
                         )
                         onComplete(true, null)
+                        printPollCount = 0
                         watchPrintJob()
                     } catch (e: Exception) {
                         onComplete(false, e.message ?: "بازکردن پنجره چاپ PDF ناموفق بود.")
@@ -101,7 +122,7 @@ object ScientificHtmlPdfRenderer {
                 }
             }
             web.loadDataWithBaseURL(
-                "https://researchmate.local/",
+                null,
                 html(title, bodyHtml),
                 "text/html",
                 "UTF-8",
@@ -115,11 +136,11 @@ object ScientificHtmlPdfRenderer {
 
     private fun watchPrintJob() {
         val job = activePrintJob ?: return
-        if (job.isCompleted || job.isCancelled || job.isFailed) {
+        if (job.isCompleted || job.isCancelled || job.isFailed || ++printPollCount >= 180) {
             releaseWebView()
             return
         }
-        mainHandler.postDelayed({ watchPrintJob() }, 1500L)
+        mainHandler.postDelayed({ watchPrintJob() }, 1000L)
     }
 
     private fun releaseWebView() {
