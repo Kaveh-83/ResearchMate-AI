@@ -19,7 +19,7 @@ No AI-generated code is executed. The scientific document rendering path disable
 2. Tap **کپی پرامپت پژوهش** and provide the topic, intended document type, language, date range and source constraints to the AI assistant.
 3. The prompt requests four clearly labelled blocks: document title, abstract, keywords and manuscript Markdown. Copy each block into its matching field; paste only the manuscript section into the Markdown editor.
 4. Use Markdown headings: # for main sections, ## for subsections, and ### for lower-level headings. Basic bold, italic, lists, blockquotes and Markdown tables are supported.
-5. The draft is automatically saved locally on the device. It is not uploaded to the ResearchMate Worker.
+5. The draft is automatically saved locally on the device, including when leaving the editor. It is not uploaded to the ResearchMate Worker. JSON export preserves image URI references but does not package image bytes; archive PDF/DOCX or keep the original image files too.
 6. If you have an older ResearchMate JSON package, open **ورود/ویرایش اجزای پیشرفته** and import the JSON file. The article text is moved into Markdown fields while tables, charts, figures, equations and references are preserved.
 7. For each figure, select the image from the phone. Persisted content URIs are attached to the matching figure ID.
 8. Review structural errors and warnings. Validation checks structure, not scientific truth.
