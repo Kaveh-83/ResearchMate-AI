@@ -2,16 +2,21 @@
 
 ResearchMate AI is a Persian-first native Android research workspace built with Kotlin and Jetpack Compose. Version **1.0.0** adds an offline scientific-document production workflow on top of the multi-provider literature discovery workspace.
 
-## v1.0 Scientific Document Studio
+## v1.0.3 Scientific Document Studio (release candidate)
 
-- AI assistants can be asked to return a structured JSON scientific-document package (schema 1.0); ResearchMate validates and renders the package but never executes generated code.
-- Offline on-device PDF rendering supports multi-page scientific text, section headings, tables, vector bar/line charts from numeric series, attached PNG/JPEG/WebP figures, formula text blocks and references.
-- Figure attachments are selected on the phone and linked to IDs defined in the JSON package.
-- Built-in Persian step-by-step guides explain the manuscript, tables, charts, figures, equations, references, validation and export workflow.
-- Basic editable DOCX export is available; embedded chart/image layout and advanced equation formatting are not yet at PDF parity.
-- PDF creation does not call an AI API or upload the package to the ResearchMate Worker.
+The scientific document workflow is Markdown-first. The manuscript is edited as plain Markdown; title, abstract and keywords are separate fields; tables, charts, figures, equations and references remain structured data.
 
-See [docs/SCIENTIFIC_DOCUMENT_STUDIO_V1.md](docs/SCIENTIFIC_DOCUMENT_STUDIO_V1.md) for the complete package contract, usage guide and limitations.
+- Automatic local draft persistence in app preferences; no cloud upload is used for document content.
+- Import legacy schema 1.0 JSON packages, edit the manuscript in Markdown, and export the complete structured package as JSON for backup.
+- Offline HTML/CSS to PDF rendering through Android WebView and the public PrintManager API. The Android print dialog offers Save as PDF.
+- PDF HTML layout includes A4 styling, RTL text, Markdown tables, structured tables, SVG charts, content-URI figures, equations and references.
+- Separate DOCX writer creates native Word tables, embeds PNG figures and generated chart images, and retains editable text, headings, equations and references.
+- WebView JavaScript and network loading are disabled for the document rendering path; user-selected images are accepted only from content URIs.
+- Regression tests cover Markdown conversion, package validation, preservation of structured assets, sample research rendering and unsafe image URI handling.
+
+A tested sample research package is available at [examples/steel_ml_mini_review.json](examples/steel_ml_mini_review.json), with a readable Markdown copy at [examples/steel_ml_mini_review.md](examples/steel_ml_mini_review.md).
+
+**Validation status:** GitHub Actions verifies JVM regression tests and Android APK compilation. Real-device print dialog, image permissions, pagination, and Microsoft Word/LibreOffice rendering still require device/application-level QA before production release.
 
 ## v0.7.0 capabilities
 
