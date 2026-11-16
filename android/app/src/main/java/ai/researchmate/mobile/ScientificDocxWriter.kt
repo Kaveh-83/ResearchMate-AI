@@ -15,7 +15,7 @@ import java.util.zip.ZipOutputStream
 
 /** Offline WordprocessingML writer: native Word tables plus embedded PNG figures and charts. */
 object ScientificDocxWriter {
-    private data class Media(val name: String, val bytes: ByteArray, val relId: String)
+    private data class Media(val name: String, val bytes: ByteArray, val relId: String, val width: Long, val height: Long)
     private val media = mutableListOf<Media>()
     private val rels = StringBuilder()
     private var relNumber = 1
@@ -155,7 +155,29 @@ object ScientificDocxWriter {
         val pStyle = if (style == null) "" else "<w:pStyle w:val=\"" + style + "\"/>"
         val align = if (centered) """<w:jc w:val="center"/>""" else ""
         val emphasis = if (bold) "<w:b/><w:bCs/>" else ""
-        return """<w:p><w:pPr><w:bidi/>""" + pStyle + align + """</w:pPr><w:r><w:rPr><w:rtl/>""" + emphasis + """<w:rFonts w:ascii="Arial" w:hAnsi="Arial" w:cs="Arial"/></w:rPr><w:t xml:space="preserve">""" + xml(text) + "</w:t></w:r></w:p>"
+        return """<w:p><w:pPr><w:bidi/>""" + pStyle + align + """</w:pPr>""" + inlineRuns(text, bold) + "</w:p>"
+    }
+
+    private fun inlineRuns(text: String, defaultBold: Boolean = false): String = buildString {
+        val pattern = Regex("\\*\\*(.+?)\\*\\*|\\*(.+?)\\*")
+        var cursor = 0
+        for (match in pattern.findAll(text)) {
+            if (match.range.first > cursor) append(runXml(text.substring(cursor, match.range.first), defaultBold, false))
+            val strong = match.groupValues[1]
+            val italic = match.groupValues[2]
+            if (strong.isNotEmpty()) append(runXml(strong, true, false))
+            else append(runXml(italic, defaultBold, true))
+            cursor = match.range.last + 1
+        }
+        if (cursor < text.length || text.isEmpty()) append(runXml(text.substring(cursor), defaultBold, false))
+    }
+
+    private fun runXml(value: String, bold: Boolean, italic: Boolean): String {
+        val boldXml = if (bold) "<w:b/><w:bCs/>" else ""
+        val italicXml = if (italic) "<w:i/><w:iCs/>" else ""
+        return """<w:r><w:rPr><w:rtl/>""" + boldXml + italicXml +
+            """<w:rFonts w:ascii="Arial" w:hAnsi="Arial" w:cs="Arial"/></w:rPr><w:t xml:space="preserve">""" +
+            xml(value) + "</w:t></w:r>"
     }
 
     private fun tableXml(table: JSONObject): String {
@@ -213,13 +235,22 @@ object ScientificDocxWriter {
         rels.append("""<Relationship Id="""").append("\"").append(id)
             .append("\" Type=\"http://schemas.openxmlformats.org/officeDocument/2006/relationships/image\" Target=\"media/")
             .append(name).append("\"/>")
-        return Media(name, bytes, id).also { media.add(it) }
+        val bounds = BitmapFactory.Options().apply { inJustDecodeBounds = true }
+        BitmapFactory.decodeByteArray(bytes, 0, bytes.size, bounds)
+        val sourceWidth = bounds.outWidth.coerceAtLeast(1).toFloat()
+        val sourceHeight = bounds.outHeight.coerceAtLeast(1).toFloat()
+        val maxWidth = 5_800_000.0
+        val maxHeight = 5_200_000.0
+        val scale = minOf(maxWidth / sourceWidth, maxHeight / sourceHeight)
+        val width = (sourceWidth * scale).toLong().coerceAtLeast(1L)
+        val height = (sourceHeight * scale).toLong().coerceAtLeast(1L)
+        return Media(name, bytes, id, width, height).also { media.add(it) }
     }
 
     private fun imageParagraph(item: Media): String {
         val id = drawingNumber++
-        val width = 5_800_000L
-        val height = 3_000_000L
+        val width = item.width
+        val height = item.height
         return """<w:p><w:pPr><w:bidi/><w:jc w:val="center"/></w:pPr><w:r><w:drawing><wp:inline distT="0" distB="0" distL="0" distR="0"><wp:extent cx=""" +
             width + """ cy=""" + height + """/><wp:docPr id=""" + id + """ name=""" + xml(item.name) + """/><wp:cNvGraphicFramePr><a:graphicFrameLocks noChangeAspect="1"/></wp:cNvGraphicFramePr><a:graphic><a:graphicData uri="http://schemas.openxmlformats.org/drawingml/2006/picture"><pic:pic><pic:nvPicPr><pic:cNvPr id=""" +
             id + """ name=""" + xml(item.name) + """/><pic:cNvPicPr/></pic:nvPicPr><pic:blipFill><a:blip r:embed=""" + item.relId + """/><a:stretch><a:fillRect/></a:stretch></pic:blipFill><pic:spPr><a:xfrm><a:off x="0" y="0"/><a:ext cx=""" +
