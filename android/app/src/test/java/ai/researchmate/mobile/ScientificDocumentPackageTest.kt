@@ -66,6 +66,36 @@ class ScientificDocumentPackageTest {
         assertTrue(ScientificDocumentPackage.validate(repaired).valid)
     }
 
+    @Test fun realSteelMlReviewFixturePassesValidationAndHtmlRendering() {
+        val input = javaClass.getResourceAsStream("/steel_ml_mini_review.json")
+            ?.bufferedReader(Charsets.UTF_8)?.use { it.readText() }
+            ?: error("Sample scientific review fixture is missing")
+        val report = ScientificDocumentPackage.validate(input)
+        assertTrue(report.errors.joinToString(), report.valid)
+        assertEquals(1, report.tableCount)
+        assertEquals(1, report.chartCount)
+        assertEquals(1, report.figureCount)
+        assertEquals(7, report.referenceCount)
+
+        val html = ScientificHtmlPackageBuilder.build(input)
+        assertTrue(html.contains("<svg"))
+        assertTrue(html.contains("CatBoost"))
+        assertTrue(html.contains("منابع"))
+        assertTrue(html.contains("جدول"))
+        assertFalse(html.contains("<script"))
+        assertTrue(html.contains("تصویر پیوست نشده"))
+    }
+
+    @Test fun unsafeRemoteImageUriIsNotRenderedAsAnImage() {
+        val packageWithRemoteImage = validPackage().replace(
+            "\"source\":\"AI schematic\"",
+            "\"source\":\"AI schematic\",\"image_uri\":\"https://example.com/pixel.png\""
+        )
+        val html = ScientificHtmlPackageBuilder.build(packageWithRemoteImage)
+        assertFalse(html.contains("https://example.com/pixel.png"))
+        assertTrue(html.contains("figure-placeholder"))
+    }
+
     @Test fun attachingImageRequiresExistingFigureId() {
         val attached = ScientificDocumentPackage.attachImage(validPackage(), "fig1", "content://media/external/images/1")
         assertTrue(ScientificDocumentPackage.hasImage(attached, "fig1"))
