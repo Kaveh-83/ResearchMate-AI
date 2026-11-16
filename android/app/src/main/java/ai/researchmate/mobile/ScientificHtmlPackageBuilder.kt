@@ -120,16 +120,39 @@ object ScientificHtmlPackageBuilder {
 
     private fun textBlock(raw: String): String = buildString {
         var list: String? = null
+        val tableRows = mutableListOf<List<String>>()
         fun closeList() { list?.let { append("</").append(it).append(">") }; list = null }
+        fun flushTable() {
+            if (tableRows.isEmpty()) return
+            val rows = tableRows.filterNot { row -> row.all { it.trim().matches(Regex(":?-{3,}:?")) } }
+            if (rows.isNotEmpty()) {
+                append("<table><thead><tr>")
+                rows.first().forEach { append("<th>").append(inline(it.trim())).append("</th>") }
+                append("</tr></thead><tbody>")
+                rows.drop(1).forEach { row ->
+                    append("<tr>")
+                    for (i in rows.first().indices) append("<td>").append(inline(row.getOrNull(i).orEmpty().trim())).append("</td>")
+                    append("</tr>")
+                }
+                append("</tbody></table>")
+            }
+            tableRows.clear()
+        }
         raw.replace("\r\n", "\n").lines().forEach { lineRaw ->
             val line = lineRaw.trim()
+            if (line.startsWith("|") && line.endsWith("|")) {
+                closeList()
+                tableRows.add(line.trim('|').split("|"))
+                return@forEach
+            }
+            flushTable()
             if (line.isBlank()) { closeList(); return@forEach }
             val heading = Regex("^(#{1,3})\\s+(.+)$").matchEntire(line)
             if (heading != null) {
                 closeList()
-                val n = heading.groupValues[1].length + 1
-                append("<h").append(n.coerceAtMost(4)).append(">").append(inline(heading.groupValues[2]))
-                    .append("</h").append(n.coerceAtMost(4)).append(">")
+                val n = (heading.groupValues[1].length + 1).coerceAtMost(4)
+                append("<h").append(n).append(">").append(inline(heading.groupValues[2]))
+                    .append("</h").append(n).append(">")
                 return@forEach
             }
             val bullet = Regex("^[-*+]\\s+(.+)$").matchEntire(line)
@@ -144,6 +167,7 @@ object ScientificHtmlPackageBuilder {
             if (line.startsWith(">")) append("<blockquote>").append(inline(line.drop(1).trim())).append("</blockquote>")
             else append("<p>").append(inline(line)).append("</p>")
         }
+        flushTable()
         closeList()
     }
 
