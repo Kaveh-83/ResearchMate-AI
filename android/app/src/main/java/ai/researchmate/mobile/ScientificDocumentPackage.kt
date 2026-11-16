@@ -186,7 +186,7 @@ object ScientificDocumentPackage {
     }
 
     fun figureIds(raw: String): List<String> = try {
-        val array = JSONObject(raw).optJSONArray("figures") ?: JSONArray()
+        val array = parseRoot(raw).optJSONArray("figures") ?: JSONArray()
         (0 until array.length()).mapNotNull { i ->
             array.optJSONObject(i)?.optString("id")?.takeIf { it.isNotBlank() }
         }
@@ -201,7 +201,9 @@ object ScientificDocumentPackage {
     } catch (_: Exception) { false }
 
     fun attachImage(raw: String, id: String, uri: String): String {
-        val root = JSONObject(raw)
+        val root = parseRoot(raw)
+        val parsedUri = try { android.net.Uri.parse(uri) } catch (_: Exception) { null }
+        require(parsedUri?.scheme == "content") { "تصویر باید از فایل انتخاب‌شده در دستگاه پیوست شود." }
         val figures = root.optJSONArray("figures") ?: JSONArray()
         var found = false
         for (i in 0 until figures.length()) {
@@ -218,11 +220,11 @@ object ScientificDocumentPackage {
     }
 
     fun title(raw: String): String = try {
-        JSONObject(raw).optJSONObject("document")?.optString("title")?.takeIf { it.isNotBlank() } ?: "گزارش پژوهشی"
+        parseRoot(raw).optJSONObject("document")?.optString("title")?.takeIf { it.isNotBlank() } ?: "گزارش پژوهشی"
     } catch (_: Exception) { "گزارش پژوهشی" }
 
     fun toMarkdown(raw: String): String {
-        val root = JSONObject(raw)
+        val root = parseRoot(raw)
         val document = root.optJSONObject("document") ?: JSONObject()
         val manuscript = root.optJSONObject("manuscript") ?: JSONObject()
         return buildString {
