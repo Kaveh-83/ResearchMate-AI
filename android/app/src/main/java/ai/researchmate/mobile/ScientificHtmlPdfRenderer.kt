@@ -66,6 +66,13 @@ object ScientificHtmlPdfRenderer {
         }
 
         try {
+            activePrintJob?.let { job ->
+                if (!job.isCompleted && !job.isCancelled && !job.isFailed) {
+                    onComplete(false, "یک عملیات چاپ دیگر هنوز در حال انجام است.")
+                    return
+                }
+                releaseWebView()
+            }
             val web = WebView(activity)
             activeWebView?.let { previous ->
                 try { previous.stopLoading(); previous.destroy() } catch (_: Exception) { }
@@ -136,7 +143,7 @@ object ScientificHtmlPdfRenderer {
 
     private fun watchPrintJob() {
         val job = activePrintJob ?: return
-        if (job.isCompleted || job.isCancelled || job.isFailed || ++printPollCount >= 180) {
+        if (job.isCompleted || job.isCancelled || job.isFailed || ++printPollCount >= 600) {
             releaseWebView()
             return
         }
