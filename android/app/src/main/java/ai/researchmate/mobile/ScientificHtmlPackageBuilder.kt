@@ -77,8 +77,11 @@ object ScientificHtmlPackageBuilder {
                 append("<figure><figcaption>شکل ").append(i + 1).append(": ")
                     .append(esc(figure.optString("caption"))).append("</figcaption>")
                 val imageUri = figure.optString("image_uri")
-                if (imageUri.isNotBlank()) {
-                    append("<img class=\"attached-figure\" src=\"").append(esc(imageUri))
+                val safeImageUri = try {
+                    android.net.Uri.parse(imageUri).takeIf { it.scheme == "content" }?.toString().orEmpty()
+                } catch (_: Exception) { "" }
+                if (safeImageUri.isNotBlank()) {
+                    append("<img class=\"attached-figure\" src=\"").append(esc(safeImageUri))
                         .append("\" alt=\"").append(esc(figure.optString("caption"))).append("\">")
                 } else {
                     append("<div class=\"figure-placeholder\">")
