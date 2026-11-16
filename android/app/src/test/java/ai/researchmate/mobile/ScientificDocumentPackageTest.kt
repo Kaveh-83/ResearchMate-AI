@@ -83,7 +83,7 @@ class ScientificDocumentPackageTest {
         assertTrue(html.contains("منابع"))
         assertTrue(html.contains("جدول"))
         assertFalse(html.contains("<script"))
-        assertTrue(html.contains("تصویر پیوست نشده"))
+        assertTrue(html.contains("figure-placeholder"))
     }
 
     @Test fun unsafeRemoteImageUriIsNotRenderedAsAnImage() {
