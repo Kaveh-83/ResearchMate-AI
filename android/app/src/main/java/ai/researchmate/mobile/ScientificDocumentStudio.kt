@@ -71,6 +71,9 @@ fun ScientificDocumentStudioScreen(
         basePackage = editorPackage
         advancedJson = editorPackage
     }
+    DisposableEffect(editorPackage) {
+        onDispose { preferences.edit().putString("draft_package", editorPackage).apply() }
+    }
 
     val imagePicker = rememberLauncherForActivityResult(ActivityResultContracts.OpenDocument()) { uri ->
         val targetId = pendingImageId
@@ -317,8 +320,13 @@ fun ScientificDocumentStudioScreen(
                 OutlinedButton(onClick = { onExportPackage(editorPackage) }, modifier = Modifier.fillMaxWidth()) {
                     Icon(Icons.Default.DataObject, null)
                     Spacer(Modifier.width(7.dp))
-                    Text("پشتیبان کامل بسته علمی JSON")
+                    Text("خروجی بسته ساختاریافته JSON")
                 }
+                Text(
+                    "توجه: فایل JSON ساختار و داده‌های سند را نگه می‌دارد، اما خود فایل‌های تصویر را داخلش کپی نمی‌کند؛ برای نگهداری تصاویر، PDF یا Word را هم ذخیره کن.",
+                    style = MaterialTheme.typography.labelSmall,
+                    color = MaterialTheme.colorScheme.onSurfaceVariant
+                )
                 OutlinedButton(onClick = {
                     basePackage = DOCUMENT_JSON_TEMPLATE
                     title = ScientificDocumentPackage.editorTitle(DOCUMENT_JSON_TEMPLATE)
